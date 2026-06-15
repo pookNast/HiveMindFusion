@@ -18,9 +18,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pook/hivemind/internal/config"
-	"github.com/pook/hivemind/internal/gateway"
-	"github.com/pook/hivemind/internal/pii"
+	"github.com/pooknast/HiveMindFusion/internal/config"
+	"github.com/pooknast/HiveMindFusion/internal/gateway"
+	"github.com/pooknast/HiveMindFusion/internal/pii"
 )
 
 // ── helpers ──────────────────────────────────────────────────────────────────
