@@ -1,13 +1,11 @@
 package gateway
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // Metrics holds all Prometheus instruments for the hivemind gateway.
@@ -87,17 +85,6 @@ func (m *Metrics) ObserveRequest(consumer, model, backend string, status int, du
 	}).Observe(duration.Seconds())
 }
 
-// ObserveTokens records prompt and completion token counts.
-func (m *Metrics) ObserveTokens(consumer, model, backend string, prompt, completion int) {
-	base := prometheus.Labels{"consumer": consumer, "model": model, "backend": backend}
-
-	pt := prometheus.Labels{"consumer": base["consumer"], "model": base["model"], "backend": base["backend"], "type": "prompt"}
-	m.tokensTotal.With(pt).Add(float64(prompt))
-
-	ct := prometheus.Labels{"consumer": base["consumer"], "model": base["model"], "backend": base["backend"], "type": "completion"}
-	m.tokensTotal.With(ct).Add(float64(completion))
-}
-
 // SetVRAMUsage updates the VRAM gauge for a backend.
 func (m *Metrics) SetVRAMUsage(backend string, bytes float64) {
 	m.vramUsageBytes.With(prometheus.Labels{"backend": backend}).Set(bytes)
@@ -112,17 +99,6 @@ func (m *Metrics) SetBackendHealth(backend string, healthy bool) {
 	m.backendHealth.With(prometheus.Labels{"backend": backend}).Set(v)
 }
 
-// Middleware wraps an http.Handler and records request metrics.
-// consumer and backend are extracted from request context or defaulted.
-func (m *Metrics) Middleware(next http.Handler, consumer, model, backend string) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		rw := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
-		next.ServeHTTP(rw, r)
-		m.ObserveRequest(consumer, model, backend, rw.status, time.Since(start))
-	})
-}
-
 // statusRecorder captures the HTTP status code written by a handler.
 type statusRecorder struct {
 	http.ResponseWriter
@@ -132,11 +108,4 @@ type statusRecorder struct {
 func (s *statusRecorder) WriteHeader(code int) {
 	s.status = code
 	s.ResponseWriter.WriteHeader(code)
-}
-
-// ServeMetrics starts an HTTP server on metricsPort exposing /metrics.
-func (m *Metrics) ServeMetrics(reg prometheus.Gatherer, metricsPort int) error {
-	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
-	return http.ListenAndServe(fmt.Sprintf(":%d", metricsPort), mux)
 }

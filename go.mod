@@ -1,4 +1,4 @@
-module github.com/pook/hivemind
+module github.com/pooknast/HiveMindFusion
 
 go 1.23.0
 

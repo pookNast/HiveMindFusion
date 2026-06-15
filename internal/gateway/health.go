@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pook/hivemind/internal/config"
+	"github.com/pooknast/HiveMindFusion/internal/config"
 )
 
 // BackendState represents the health state of a backend.

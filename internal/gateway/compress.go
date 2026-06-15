@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/pook/hivemind/internal/config"
+	"github.com/pooknast/HiveMindFusion/internal/config"
 )
 
 // Compressor calls the headroom-srv sidecar to compress request bodies.

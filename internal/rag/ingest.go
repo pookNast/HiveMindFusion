@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pook/hivemind/internal/config"
+	"github.com/pooknast/HiveMindFusion/internal/config"
 )
 
 // IngestDoc is a single document to embed and store.

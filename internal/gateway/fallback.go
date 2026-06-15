@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/pook/hivemind/internal/config"
+	"github.com/pooknast/HiveMindFusion/internal/config"
 )
 
 // buildFallbackChain groups backends by model name and sorts each group by priority

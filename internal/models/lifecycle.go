@@ -9,8 +9,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/pook/hivemind/internal/config"
-	"github.com/pook/hivemind/internal/vram"
+	"github.com/pooknast/HiveMindFusion/internal/config"
+	"github.com/pooknast/HiveMindFusion/internal/vram"
 )
 
 const defaultContextLen = 4096

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/pook/hivemind/internal/vram"
+	"github.com/pooknast/HiveMindFusion/internal/vram"
 )
 
 // defaultCtxLen is the context length used for VRAM estimates in list output.

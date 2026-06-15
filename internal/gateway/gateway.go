@@ -10,9 +10,9 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/pook/hivemind/internal/config"
-	"github.com/pook/hivemind/internal/pii"
-	"github.com/pook/hivemind/internal/rag"
+	"github.com/pooknast/HiveMindFusion/internal/config"
+	"github.com/pooknast/HiveMindFusion/internal/pii"
+	"github.com/pooknast/HiveMindFusion/internal/rag"
 )
 
 type Gateway struct {

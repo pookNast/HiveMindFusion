@@ -13,8 +13,8 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/pook/hivemind/internal/config"
-	"github.com/pook/hivemind/internal/rag"
+	"github.com/pooknast/HiveMindFusion/internal/config"
+	"github.com/pooknast/HiveMindFusion/internal/rag"
 )
 
 // Proxy routes OpenAI-compatible requests to configured backends with fallback support.
