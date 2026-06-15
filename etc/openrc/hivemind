@@ -4,9 +4,17 @@ name="hivemind"
 description="Hivemind Gateway Service"
 
 command="/usr/local/bin/hivemind-gw"
-command_background=true
+command_args="--config /home/pook/ralph/hivemind/config/batkave.toml"
+command_user="pook:pook"
+
+# ponytail: supervise-daemon over command_background=true — proper PID tracking,
+# auto-respawn, correct pidfile lifecycle. Deletes the custom stop() that deleted
+# the pidfile before the process died (root cause of the drift).
+# upgrade: migrate to s6/runit if OpenRC supervision proves insufficient.
+supervisor="supervise-daemon"
 pidfile="/run/hivemind.pid"
-command_args=""
+respawn_period="60"
+respawn_delay="2"
 
 logdir="/var/log/hivemind"
 output_log="${logdir}/hivemind.log"
@@ -18,20 +26,10 @@ depend() {
 }
 
 start_pre() {
-    if [ -f /etc/hivemind/env ]; then
-        export $(grep -v '^#' /etc/hivemind/env | xargs)
-    fi
-    checkpath --directory --owner root:root --mode 0755 "${logdir}"
-}
-
-stop() {
-    ebegin "Stopping ${name}"
-    if [ -f "${pidfile}" ]; then
-        kill -TERM "$(cat ${pidfile})" 2>/dev/null
-        local ret=$?
-        rm -f "${pidfile}"
-        eend $ret
-    else
-        eend 0
-    fi
+    # ponytail: load env from root-owned file — upgrade: secret backend (vault/age)
+    # if key rotation or multi-secret growth becomes a concern
+    set -a
+    [ -f /etc/hivemind/env ] && . /etc/hivemind/env
+    set +a
+    checkpath --directory --owner pook:pook --mode 0755 "${logdir}"
 }
