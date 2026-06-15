@@ -1,0 +1,6 @@
+{
+  "session_id": "48670475-b3a0-476f-b11b-b1f110c49641",
+  "prompts": [
+    "[System]\nYou are Claude. an expert assistant\n\n<instructions>\nWhat is the single most important principle in system design and why?\n</instructions>\n\n<context>\n\n</context>\n\n<constraints>\n\n</constraints>\n\n<output_format>\nRespond clearly and concisely.\n</output_format>\n\n<avoid_overengineering>\nOnly make changes directly requested or clearly necessary. Do not add features,\nrefactor, or make improvements beyond what was asked. Do not create helpers for\none-time operations. Trust internal code and framework guarantees; validate only\nat system boundaries.\n</avoid_overengineering>\n\n\n\nBefore you finish, verify your answer against the stated requirements.\n\n[User]\nWhat is the single most important principle in system design and why?"
+  ]
+}

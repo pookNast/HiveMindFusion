@@ -1,0 +1,45 @@
+# Hivemind gateway — example test configuration
+# Used as reference for integration test setup.
+# Tests construct config.Config structs directly; this file documents the shape.
+
+[gateway]
+port         = 18091
+admin_port   = 18092
+metrics_port = 18093
+health_interval_secs     = 3600   # suppress polling in tests
+health_failure_threshold = 3
+
+[[backends]]
+name     = "primary"
+url      = "http://127.0.0.1:11434"
+model    = "test-model"
+priority = 1
+
+[[backends]]
+name     = "secondary"
+url      = "http://127.0.0.1:11435"
+model    = "test-model"
+priority = 2
+
+[pii]
+enabled          = false
+endpoint         = "http://127.0.0.1:5100"
+timeout_ms       = 2000
+bypass_on_failure = true
+
+[rate_limit]
+default_requests_per_minute = 60
+default_burst               = 10
+
+[consumers]
+[consumers.api_keys]
+"test-key-abc" = "alice"
+"test-key-xyz" = "bob"
+
+[qdrant]
+endpoint   = "http://127.0.0.1:6333"
+collection = "hivemind-test"
+
+[embed]
+endpoint = "http://127.0.0.1:11434"
+model    = "qwen2.5:0.5b"

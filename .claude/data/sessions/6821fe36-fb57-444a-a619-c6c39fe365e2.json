@@ -1,0 +1,6 @@
+{
+  "session_id": "6821fe36-fb57-444a-a619-c6c39fe365e2",
+  "prompts": [
+    "# W4-S3: Migrate oc-start to use gateway\n\n## Context\n- Repo: /home/pook/ralph/hivemind\n- Working directory: /home/pook/ralph/hivemind\n- Dependencies: W1-S5\n\n## Stack (MANDATORY \u2014 do not deviate)\n- (no stack detected)\n\n## Do\nUpdate /home/pook/bin/oc-start \u2014 change OPENAI_BASE_URL from http://127.0.0.1:11434/v1 to http://127.0.0.1:8400/v1. Add fallback: if :8400 not healthy, fall back to direct :11434. Add X-HiveMind-Consumer: openclaude header. Keep CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED=1.\n\n## Files to modify\n- /home/pook/bin/oc-start\n\n## Acceptance criteria\n- [ ] oc-start connects via :8400 gateway\n- [ ] Fallback to :11434 if gateway down\n- [ ] X-HiveMind-Consumer header set\n- [ ] Existing functionality preserved\n\n## Rules\n- cd into /home/pook/ralph/hivemind before any file operations\n- Read each file BEFORE editing \u2014 understand existing code first\n- Do NOT add new dependencies without explicit need\n- Do NOT refactor surrounding code \u2014 surgical changes only\n- Run typecheck/build after changes if available\n\n## Verify\n```bash\ncd /home/pook/ralph/hivemind && grep '8400' /home/pook/bin/oc-start\n```\n\n## Commit\n```\nfeat: [W4-S3] Migrate oc-start to use gateway\n```\n"
+  ]
+}

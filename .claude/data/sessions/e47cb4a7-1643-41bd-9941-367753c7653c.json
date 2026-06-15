@@ -1,0 +1,6 @@
+{
+  "session_id": "e47cb4a7-1643-41bd-9941-367753c7653c",
+  "prompts": [
+    "# W4-S4: Grafana dashboard JSON\n\n## Context\n- Repo: /home/pook/ralph/hivemind\n- Working directory: /home/pook/ralph/hivemind\n- Dependencies: W1-S3\n\n## Stack (MANDATORY \u2014 do not deviate)\n- (no stack detected)\n\n## Do\nCreate config/grafana-hivemind.json \u2014 Grafana dashboard with panels: Request rate by consumer, Latency p50/p99, Tokens/sec, VRAM usage gauge, Backend health status, PII scan rate, Rate limit rejections. Auto-provisionable via Grafana dashboard API.\n\n## Files to modify\n- config/grafana-hivemind.json\n\n## Acceptance criteria\n- [ ] Valid Grafana dashboard JSON\n- [ ] All Prometheus metrics have panels\n- [ ] Dashboard imports without error\n\n## Rules\n- cd into /home/pook/ralph/hivemind before any file operations\n- Read each file BEFORE editing \u2014 understand existing code first\n- Do NOT add new dependencies without explicit need\n- Do NOT refactor surrounding code \u2014 surgical changes only\n- Run typecheck/build after changes if available\n\n## Verify\n```bash\ncd /home/pook/ralph/hivemind && python3 -c \"import json; json.load(open('/home/pook/ralph/hivemind/config/grafana-hivemind.json'))\" && echo valid\n```\n\n## Commit\n```\nfeat: [W4-S4] Grafana dashboard JSON\n```\n"
+  ]
+}

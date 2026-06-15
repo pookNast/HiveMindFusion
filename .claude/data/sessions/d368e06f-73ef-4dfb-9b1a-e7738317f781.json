@@ -1,0 +1,6 @@
+{
+  "session_id": "d368e06f-73ef-4dfb-9b1a-e7738317f781",
+  "prompts": [
+    "# W0-S1: Go module + project structure\n\n## Context\n- Repo: /home/pook/ralph/hivemind\n- Working directory: /home/pook/ralph/hivemind\n- Dependencies: none\n\n## Stack (MANDATORY \u2014 do not deviate)\n- (no stack detected)\n\n## Do\nInitialize Go module, create cmd/hivemind-gw, cmd/hivemind-ctl, internal/config, internal/gateway, internal/pii, internal/vram, internal/models directories. Add go.mod with BurntSushi/toml, prometheus/client_golang deps.\n\n## Files to modify\n- go.mod\n- go.sum\n- cmd/hivemind-gw/main.go\n- cmd/hivemind-ctl/main.go\n\n## Acceptance criteria\n- [ ] go mod tidy succeeds\n- [ ] go build ./cmd/hivemind-gw compiles\n- [ ] go build ./cmd/hivemind-ctl compiles\n\n## Rules\n- cd into /home/pook/ralph/hivemind before any file operations\n- Read each file BEFORE editing \u2014 understand existing code first\n- Do NOT add new dependencies without explicit need\n- Do NOT refactor surrounding code \u2014 surgical changes only\n- Run typecheck/build after changes if available\n\n## Verify\n```bash\ncd /home/pook/ralph/hivemind && cd /home/pook/ralph/hivemind && go build ./cmd/hivemind-gw && go build ./cmd/hivemind-ctl\n```\n\n## Commit\n```\nfeat: [W0-S1] Go module + project structure\n```\n"
+  ]
+}

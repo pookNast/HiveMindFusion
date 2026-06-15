@@ -1,0 +1,7 @@
+{
+  "session_id": "9fc32589-43c0-4512-81af-8d75096e8469",
+  "prompts": [
+    "what is on :8400",
+    "glm-flash is not used anymore. The local model is the qwopus3.6-27b"
+  ]
+}

@@ -1,0 +1,37 @@
+#!/sbin/openrc-run
+
+name="hivemind"
+description="Hivemind Gateway Service"
+
+command="/usr/local/bin/hivemind-gw"
+command_background=true
+pidfile="/run/hivemind.pid"
+command_args=""
+
+logdir="/var/log/hivemind"
+output_log="${logdir}/hivemind.log"
+error_log="${logdir}/hivemind.err"
+
+depend() {
+    need networking
+    after logger
+}
+
+start_pre() {
+    if [ -f /etc/hivemind/env ]; then
+        export $(grep -v '^#' /etc/hivemind/env | xargs)
+    fi
+    checkpath --directory --owner root:root --mode 0755 "${logdir}"
+}
+
+stop() {
+    ebegin "Stopping ${name}"
+    if [ -f "${pidfile}" ]; then
+        kill -TERM "$(cat ${pidfile})" 2>/dev/null
+        local ret=$?
+        rm -f "${pidfile}"
+        eend $ret
+    else
+        eend 0
+    fi
+}

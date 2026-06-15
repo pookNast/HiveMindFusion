@@ -1,0 +1,349 @@
+{
+  "project": "hivemind-consolidation",
+  "repo": "/home/pook/ralph/hivemind",
+  "root": "/home/pook/ralph/hivemind",
+  "created": "2026-06-07",
+  "confidence_target": 0.95,
+  "profile": "production_compact_rlm",
+  "waves": [
+    {
+      "id": "W0",
+      "name": "Infrastructure: Fix Backends + Config Upgrades",
+      "deps": [],
+      "items": [
+        {
+          "id": "W0-01",
+          "title": "Diagnose ollama-secondary (:11435)",
+          "role": "siteops",
+          "goal": "Check if Ollama process is running on :11435, restart if needed, verify health",
+          "files": [],
+          "acceptance": "ollama-secondary responds to health check on :11435",
+          "verify_cmd": "curl -sf http://127.0.0.1:11435/api/tags > /dev/null && echo PASS || echo FAIL",
+          "retry": { "attempt_1": "sonnet", "attempt_2": "opus", "attempt_3": "human_review" },
+          "passes": false
+        },
+        {
+          "id": "W0-02",
+          "title": "Diagnose vps-fallback (100.64.0.2:11434)",
+          "role": "siteops",
+          "goal": "Check VPS Ollama via Headscale, restart if needed or mark as intentional-offline",
+          "files": [],
+          "acceptance": "VPS Ollama responds OR documented as intentional-offline in config",
+          "verify_cmd": "ssh vps 'ss -tlnp | grep 11434' && echo PASS || echo FAIL",
+          "retry": { "attempt_1": "sonnet", "attempt_2": "opus", "attempt_3": "human_review" },
+          "passes": false
+        },
+        {
+          "id": "W0-03",
+          "title": "Add rlm-swarm consumer to batkave.toml",
+          "role": "implementation",
+          "goal": "Add rate limit config for rlm-swarm consumer: 120 req/min, burst 40",
+          "files": ["config/batkave.toml"],
+          "acceptance": "rlm-swarm consumer appears in rate_limits section with correct values",
+          "verify_cmd": "grep -A2 'rlm-swarm' config/batkave.toml | grep -q '120' && echo PASS || echo FAIL",
+          "retry": { "attempt_1": "sonnet", "attempt_2": "opus", "attempt_3": "human_review" },
+          "passes": false
+        },
+        {
+          "id": "W0-04",
+          "title": "Add ceo-agent consumer to batkave.toml",
+          "role": "implementation",
+          "goal": "Add rate limit config for ceo-agent consumer: 30 req/min, burst 10",
+          "files": ["config/batkave.toml"],
+          "acceptance": "ceo-agent consumer appears in rate_limits section with correct values",
+          "verify_cmd": "grep -A2 'ceo-agent' config/batkave.toml | grep -q '30' && echo PASS || echo FAIL",
+          "retry": { "attempt_1": "sonnet", "attempt_2": "opus", "attempt_3": "human_review" },
+          "passes": false
+        },
+        {
+          "id": "W0-05",
+          "title": "Add RAG config for ceo-agent consumer",
+          "role": "implementation",
+          "goal": "Add RAG context injection: collection=knowledge_graph, top_k=5, min_score=0.7",
+          "files": ["config/batkave.toml"],
+          "acceptance": "ceo-agent RAG section in config with correct collection/top_k/min_score",
+          "verify_cmd": "grep -A4 'ceo-agent' config/batkave.toml | grep -q 'knowledge_graph' && echo PASS || echo FAIL",
+          "retry": { "attempt_1": "sonnet", "attempt_2": "opus", "attempt_3": "human_review" },
+          "passes": false
+        },
+        {
+          "id": "W0-06",
+          "title": "Verify rlm-swarm RAG config alignment",
+          "role": "implementation",
+          "goal": "Check if ralph-swarm RAG config exists and either rename to rlm-swarm or add alias",
+          "files": ["config/batkave.toml"],
+          "acceptance": "rlm-swarm has RAG config (new or aliased from ralph-swarm)",
+          "verify_cmd": "python3 -c \"import tomllib; c=tomllib.load(open('config/batkave.toml','rb')); print('PASS')\"",
+          "retry": { "attempt_1": "sonnet", "attempt_2": "opus", "attempt_3": "human_review" },
+          "passes": false
+        },
+        {
+          "id": "W0-07",
+          "title": "Verify 7/7 backends healthy",
+          "role": "siteops",
+          "goal": "After backend fixes, confirm hivemind admin shows all backends healthy",
+          "files": [],
+          "acceptance": "Zero unhealthy backends in health endpoint",
+          "verify_cmd": "curl -s http://127.0.0.1:8401/health | jq '.backends | map(select(.healthy == false)) | length' | grep -q '^0$' && echo PASS || echo FAIL",
+          "retry": { "attempt_1": "sonnet", "attempt_2": "opus", "attempt_3": "human_review" },
+          "passes": false
+        }
+      ]
+    },
+    {
+      "id": "W1",
+      "name": "Wire RLM Engine Through Hivemind",
+      "deps": ["W0"],
+      "items": [
+        {
+          "id": "W1-01",
+          "title": "Add hivemind routing to agent-launch.sh",
+          "role": "implementation",
+          "goal": "When RLM_MODEL_OVERRIDE=local|hivemind, set OPENAI_BASE_URL=http://127.0.0.1:8400/v1 with X-HiveMind-Consumer: rlm-swarm header",
+          "files": ["ralph/rlm-engine/launchers/agent-launch.sh"],
+          "acceptance": "agent-launch.sh routes through :8400 when RLM_MODEL_OVERRIDE=hivemind",
+          "verify_cmd": "grep -c 'HIVEMIND\\|8400' ralph/rlm-engine/launchers/agent-launch.sh | grep -q '[1-9]' && echo PASS || echo FAIL",
+          "retry": { "attempt_1": "sonnet", "attempt_2": "opus", "attempt_3": "human_review" },
+          "passes": false
+        },
+        {
+          "id": "W1-02",
+          "title": "Wire Toolmem research through hivemind",
+          "role": "implementation",
+          "goal": "Change recall queries in agent-launch.sh to use :8400 when available, fallback to direct",
+          "files": ["ralph/rlm-engine/launchers/agent-launch.sh"],
+          "acceptance": "Toolmem queries route through hivemind with fallback to direct",
+          "verify_cmd": "grep -c 'HIVEMIND_URL\\|8400' ralph/rlm-engine/launchers/agent-launch.sh | grep -q '[2-9]' && echo PASS || echo FAIL",
+          "retry": { "attempt_1": "sonnet", "attempt_2": "opus", "attempt_3": "human_review" },
+          "passes": false
+        },
+        {
+          "id": "W1-03",
+          "title": "Add HIVEMIND_URL to gen-launchers.sh template",
+          "role": "implementation",
+          "goal": "Inject HIVEMIND_URL env var into generated launchers so they inherit routing",
+          "files": ["ralph/rlm-engine/launchers/gen-launchers.sh"],
+          "acceptance": "Generated launchers include HIVEMIND_URL export",
+          "verify_cmd": "grep -c 'HIVEMIND_URL' ralph/rlm-engine/launchers/gen-launchers.sh | grep -q '[1-9]' && echo PASS || echo FAIL",
+          "retry": { "attempt_1": "sonnet", "attempt_2": "opus", "attempt_3": "human_review" },
+          "passes": false
+        },
+        {
+          "id": "W1-04",
+          "title": "Add HIVEMIND_URL to mega-chief.sh",
+          "role": "implementation",
+          "goal": "Export HIVEMIND_URL in mega-chief orchestrator environment",
+          "files": ["ralph/rlm-engine/launchers/mega-chief.sh"],
+          "acceptance": "mega-chief.sh exports HIVEMIND_URL for child agents",
+          "verify_cmd": "grep -c 'HIVEMIND_URL' ralph/rlm-engine/launchers/mega-chief.sh | grep -q '[1-9]' && echo PASS || echo FAIL",
+          "retry": { "attempt_1": "sonnet", "attempt_2": "opus", "attempt_3": "human_review" },
+          "passes": false
+        },
+        {
+          "id": "W1-05",
+          "title": "Add hivemind health check to rlm-preflight.sh",
+          "role": "implementation",
+          "goal": "Health-check hivemind (:8400) as part of preflight, warn if down",
+          "files": ["ralph/rlm-engine/launchers/rlm-preflight.sh"],
+          "acceptance": "rlm-preflight.sh checks :8400 health and warns if unreachable",
+          "verify_cmd": "grep -c '8400\\|hivemind' ralph/rlm-engine/launchers/rlm-preflight.sh | grep -q '[1-9]' && echo PASS || echo FAIL",
+          "retry": { "attempt_1": "sonnet", "attempt_2": "opus", "attempt_3": "human_review" },
+          "passes": false
+        }
+      ]
+    },
+    {
+      "id": "W2",
+      "name": "Wire CEO-Agent Through Hivemind",
+      "deps": ["W0"],
+      "items": [
+        {
+          "id": "W2-01",
+          "title": "Modify registerAdapters() for hivemind routing",
+          "role": "implementation",
+          "goal": "Change Ollama adapter URL from :11434 to :8400, add X-HiveMind-Consumer: ceo-agent header",
+          "files": ["project-incubator/ceo-agent/cmd/ceo-agent/main.go"],
+          "acceptance": "registerAdapters() uses :8400 for local inference with consumer header",
+          "verify_cmd": "grep -c '8400\\|HiveMind' ~/project-incubator/ceo-agent/cmd/ceo-agent/main.go | grep -q '[1-9]' && echo PASS || echo FAIL",
+          "retry": { "attempt_1": "sonnet", "attempt_2": "opus", "attempt_3": "human_review" },
+          "passes": false
+        },
+        {
+          "id": "W2-02",
+          "title": "Update OLLAMA_BASE_URL default in CEO-Agent",
+          "role": "implementation",
+          "goal": "Change default OLLAMA_BASE_URL to http://localhost:8400/v1 in config/env",
+          "files": ["project-incubator/ceo-agent/cmd/ceo-agent/main.go", "project-incubator/ceo-agent/.env.sample"],
+          "acceptance": "Default URL points to hivemind :8400",
+          "verify_cmd": "grep -c '8400' ~/project-incubator/ceo-agent/cmd/ceo-agent/main.go | grep -q '[1-9]' && echo PASS || echo FAIL",
+          "retry": { "attempt_1": "sonnet", "attempt_2": "opus", "attempt_3": "human_review" },
+          "passes": false
+        },
+        {
+          "id": "W2-03",
+          "title": "Remove redundant PII call from CEO-Agent",
+          "role": "implementation",
+          "goal": "Remove CEO-Agent's own PII scanning since hivemind already does it inline",
+          "files": ["project-incubator/ceo-agent/internal/llm/pii_filter.go", "project-incubator/ceo-agent/cmd/ceo-agent/main.go"],
+          "acceptance": "CEO-Agent no longer double-scans via PII Shield; hivemind handles PII",
+          "verify_cmd": "grep -c 'PIIFilter\\|pii_filter\\|anonymize' ~/project-incubator/ceo-agent/cmd/ceo-agent/main.go | grep -q '^0$' && echo PASS || echo FAIL",
+          "retry": { "attempt_1": "sonnet", "attempt_2": "opus", "attempt_3": "human_review" },
+          "passes": false
+        },
+        {
+          "id": "W2-04",
+          "title": "Keep cloud fallbacks unchanged",
+          "role": "verification",
+          "goal": "Verify Anthropic and OpenRouter adapters are untouched — cloud calls remain direct",
+          "files": ["project-incubator/ceo-agent/cmd/ceo-agent/main.go"],
+          "acceptance": "Cloud adapter registrations unchanged from baseline",
+          "verify_cmd": "grep -c 'NewAnthropicAdapter\\|NewOpenRouterAdapter' ~/project-incubator/ceo-agent/cmd/ceo-agent/main.go | grep -q '^2$' && echo PASS || echo FAIL",
+          "retry": { "attempt_1": "sonnet", "attempt_2": "opus", "attempt_3": "human_review" },
+          "passes": false
+        }
+      ]
+    },
+    {
+      "id": "W3",
+      "name": "Build & Deploy",
+      "deps": ["W1", "W2"],
+      "items": [
+        {
+          "id": "W3-01",
+          "title": "Commit all hivemind changes",
+          "role": "implementation",
+          "goal": "Stage and commit config/batkave.toml, internal/config/config.go, internal/gateway/proxy.go + new changes",
+          "files": ["config/batkave.toml", "internal/config/config.go", "internal/gateway/proxy.go"],
+          "acceptance": "Clean git status for hivemind tracked files",
+          "verify_cmd": "cd ~/ralph/hivemind && git diff --name-only | wc -l | grep -q '^0$' && echo PASS || echo FAIL",
+          "retry": { "attempt_1": "sonnet", "attempt_2": "opus", "attempt_3": "human_review" },
+          "passes": false
+        },
+        {
+          "id": "W3-02",
+          "title": "Rebuild hivemind-gw binary",
+          "role": "implementation",
+          "goal": "Build the gateway binary with latest config struct changes",
+          "files": ["cmd/hivemind-gw/main.go"],
+          "acceptance": "go build exits 0, binary updated",
+          "verify_cmd": "cd ~/ralph/hivemind && go build -o hivemind-gw ./cmd/hivemind-gw/ && echo PASS || echo FAIL",
+          "retry": { "attempt_1": "sonnet", "attempt_2": "opus", "attempt_3": "human_review" },
+          "passes": false
+        },
+        {
+          "id": "W3-03",
+          "title": "Restart gateway and verify ports",
+          "role": "siteops",
+          "goal": "Run restart.sh, verify :8400/:8401/:8402 all listening",
+          "files": ["restart.sh"],
+          "acceptance": "All 3 ports respond to health/metrics checks",
+          "verify_cmd": "curl -sf http://127.0.0.1:8400/v1/models > /dev/null && curl -sf http://127.0.0.1:8401/health > /dev/null && curl -sf http://127.0.0.1:8402/metrics > /dev/null && echo PASS || echo FAIL",
+          "retry": { "attempt_1": "sonnet", "attempt_2": "opus", "attempt_3": "human_review" },
+          "passes": false
+        }
+      ]
+    },
+    {
+      "id": "W4",
+      "name": "End-to-End Validation",
+      "deps": ["W3"],
+      "items": [
+        {
+          "id": "W4-01",
+          "title": "Validate OpenClaude routing",
+          "role": "verification",
+          "goal": "Send test prompt through OpenClaude, verify X-HiveMind-Backend header",
+          "files": ["bin/oc-start"],
+          "acceptance": "OpenClaude request appears in hivemind metrics with openclaude consumer label",
+          "verify_cmd": "curl -s http://127.0.0.1:8402/metrics | grep -q 'consumer=\"openclaude\"' && echo PASS || echo FAIL",
+          "retry": { "attempt_1": "sonnet", "attempt_2": "opus", "attempt_3": "human_review" },
+          "passes": false
+        },
+        {
+          "id": "W4-02",
+          "title": "Validate departmental agent routing",
+          "role": "verification",
+          "goal": "Run test legal/compliance agent, verify metrics show consumer label",
+          "files": ["agents/legal/nda-triage.sh"],
+          "acceptance": "Departmental agent request appears in hivemind metrics",
+          "verify_cmd": "curl -s http://127.0.0.1:8402/metrics | grep -q 'hivemind_requests_total' && echo PASS || echo FAIL",
+          "retry": { "attempt_1": "sonnet", "attempt_2": "opus", "attempt_3": "human_review" },
+          "passes": false
+        },
+        {
+          "id": "W4-03",
+          "title": "Validate RLM engine routing",
+          "role": "verification",
+          "goal": "Run RLM_MODEL_OVERRIDE=hivemind test agent, verify rlm-swarm consumer in metrics",
+          "files": ["ralph/rlm-engine/launchers/agent-launch.sh"],
+          "acceptance": "rlm-swarm consumer label appears in Prometheus metrics",
+          "verify_cmd": "curl -s http://127.0.0.1:8402/metrics | grep -q 'consumer=\"rlm-swarm\"' && echo PASS || echo FAIL",
+          "retry": { "attempt_1": "sonnet", "attempt_2": "opus", "attempt_3": "human_review" },
+          "passes": false
+        },
+        {
+          "id": "W4-04",
+          "title": "Validate CEO-Agent routing",
+          "role": "verification",
+          "goal": "Start CEO-Agent, trigger decision, verify ceo-agent consumer in metrics",
+          "files": [],
+          "acceptance": "ceo-agent consumer label appears in Prometheus metrics",
+          "verify_cmd": "curl -s http://127.0.0.1:8402/metrics | grep -q 'consumer=\"ceo-agent\"' && echo PASS || echo FAIL",
+          "retry": { "attempt_1": "sonnet", "attempt_2": "opus", "attempt_3": "human_review" },
+          "passes": false
+        },
+        {
+          "id": "W4-05",
+          "title": "Validate headroom compression increase",
+          "role": "verification",
+          "goal": "Verify compress_count > 5 at headroom sidecar",
+          "files": [],
+          "acceptance": "Headroom health shows compress_count above baseline",
+          "verify_cmd": "curl -s http://127.0.0.1:9103/health | jq '.compress_count > 5' | grep -q 'true' && echo PASS || echo FAIL",
+          "retry": { "attempt_1": "sonnet", "attempt_2": "opus", "attempt_3": "human_review" },
+          "passes": false
+        }
+      ]
+    },
+    {
+      "id": "W5",
+      "name": "Audit & Ship Decision",
+      "deps": ["W4"],
+      "items": [
+        {
+          "id": "W5-01",
+          "title": "Run all audits",
+          "role": "verification",
+          "goal": "Execute preflight, security, performance, data integrity, dependency, rollback, and siteops audits per audit-specs/",
+          "files": ["logs/audit-specs/"],
+          "acceptance": "All audit reports generated in logs/audit-specs/",
+          "verify_cmd": "ls logs/audit-specs/*.md 2>/dev/null | wc -l | grep -q '[6-9]\\|1[0-9]' && echo PASS || echo FAIL",
+          "retry": { "attempt_1": "sonnet", "attempt_2": "opus", "attempt_3": "human_review" },
+          "passes": false
+        },
+        {
+          "id": "W5-02",
+          "title": "Collect confidence gates",
+          "role": "verification",
+          "goal": "Gather confidence scores from dev, architect, siteops, security, product, QA evaluator agents",
+          "files": ["logs/confidence-gates.json"],
+          "acceptance": "All 6 roles report confidence >= 0.95",
+          "verify_cmd": "python3 -c \"import json; g=json.load(open('logs/confidence-gates.json')); assert all(v>=0.95 for v in g.values()), f'Low: {g}'; print('PASS')\"",
+          "retry": { "attempt_1": "sonnet", "attempt_2": "opus", "attempt_3": "human_review" },
+          "passes": false
+        },
+        {
+          "id": "W5-03",
+          "title": "Final SHIP/NO-SHIP decision",
+          "role": "verification",
+          "goal": "Independent evaluator reviews all evidence and renders final verdict",
+          "files": ["logs/final-ship-decision.md"],
+          "acceptance": "final-ship-decision.md contains VERDICT: SHIP with evidence summary",
+          "verify_cmd": "grep -q 'VERDICT: SHIP' logs/final-ship-decision.md && echo PASS || echo FAIL",
+          "retry": { "attempt_1": "sonnet", "attempt_2": "opus", "attempt_3": "human_review" },
+          "passes": false
+        }
+      ]
+    }
+  ]
+}

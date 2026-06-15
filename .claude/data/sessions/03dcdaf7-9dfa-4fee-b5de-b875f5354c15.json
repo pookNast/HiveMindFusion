@@ -1,0 +1,6 @@
+{
+  "session_id": "03dcdaf7-9dfa-4fee-b5de-b875f5354c15",
+  "prompts": [
+    "# W1-S3: Prometheus metrics exporter\n\n## Context\n- Repo: /home/pook/ralph/hivemind\n- Working directory: /home/pook/ralph/hivemind\n- Dependencies: W0-S1\n\n## Stack (MANDATORY \u2014 do not deviate)\n- (no stack detected)\n\n## Do\nCreate internal/gateway/metrics.go \u2014 Prometheus counters/histograms: hivemind_requests_total (labels: consumer, model, backend, status), hivemind_request_duration_seconds, hivemind_tokens_total (prompt/completion), hivemind_vram_usage_bytes, hivemind_backend_health (gauge). Serves /metrics on metrics_port.\n\n## Files to modify\n- internal/gateway/metrics.go\n\n## Acceptance criteria\n- [ ] All metrics registered without collision\n- [ ] /metrics serves valid Prometheus exposition format\n- [ ] Request middleware increments counters\n\n## Rules\n- cd into /home/pook/ralph/hivemind before any file operations\n- Read each file BEFORE editing \u2014 understand existing code first\n- Do NOT add new dependencies without explicit need\n- Do NOT refactor surrounding code \u2014 surgical changes only\n- Run typecheck/build after changes if available\n\n## Verify\n```bash\ncd /home/pook/ralph/hivemind && cd /home/pook/ralph/hivemind && go vet ./internal/gateway/\n```\n\n## Commit\n```\nfeat: [W1-S3] Prometheus metrics exporter\n```\n"
+  ]
+}

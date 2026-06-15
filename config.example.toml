@@ -1,0 +1,40 @@
+# Hivemind Gateway Configuration
+# Copy to /etc/hivemind/config.toml or set HIVEMIND_CONFIG env var.
+
+[gateway]
+port         = 8400
+admin_port   = 8401
+metrics_port = 9090
+
+[[backends]]
+name            = "ollama-primary"
+url             = "http://localhost:11434"
+model           = "glm-flash:latest"
+priority        = 1
+health_endpoint = "/api/tags"
+
+[[backends]]
+name            = "ollama-secondary"
+url             = "http://localhost:11435"
+model           = "qwen2.5:0.5b"
+priority        = 2
+health_endpoint = "/api/tags"
+
+[pii]
+endpoint         = "http://localhost:5100/scan"
+enabled          = true
+bypass_on_failure = false
+timeout_ms       = 500
+
+[models]
+dir     = "/var/lib/hivemind/models"
+default = "glm-flash:latest"
+
+# per-consumer rate limits (requests per minute)
+[rate_limit]
+"default"     = 60
+"premium"     = 300
+"internal"    = 1000
+
+[qdrant]
+endpoint = "http://localhost:6333"

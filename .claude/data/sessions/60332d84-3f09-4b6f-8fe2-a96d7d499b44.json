@@ -1,0 +1,8 @@
+{
+  "session_id": "60332d84-3f09-4b6f-8fe2-a96d7d499b44",
+  "prompts": [
+    "<task-notification>\n<task-id>blqv8t0jv</task-id>\n<tool-use-id>call_d145a8cf625f441196fd022a</tool-use-id>\n<output-file>/tmp/claude-1000/-home-pook/8190f7f8-33d4-4ca9-9874-c065f21364af/tasks/blqv8t0jv.output</output-file>\n<status>completed</status>\n<summary>Background command \"Test fusion-balanced through HiveMind\" completed (exit code 0)</summary>\n</task-notification>",
+    "<task-notification>\n<task-id>bo3vvl2w4</task-id>\n<tool-use-id>call_a2fa9d72e1f74bcfbbe8fa29</tool-use-id>\n<output-file>/tmp/claude-1000/-home-pook/8190f7f8-33d4-4ca9-9874-c065f21364af/tasks/bo3vvl2w4.output</output-file>\n<status>completed</status>\n<summary>Background command \"Test fusion-balanced through HiveMind with 180s timeout\" completed (exit code 0)</summary>\n</task-notification>",
+    "proeed"
+  ]
+}

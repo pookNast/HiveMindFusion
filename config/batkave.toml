@@ -1,0 +1,261 @@
+# Hivemind Gateway — BatKave Production Config
+# Host: BatKave (RTX 4090, 24 GB VRAM)
+# Primary: TurboQuant (llama-server) :11434 | Secondary: Ollama :11435 | Fallback: VPS via Headscale
+
+[gateway]
+port                    = 8400
+admin_port              = 8401
+metrics_port            = 8402
+health_interval_secs    = 10
+health_failure_threshold = 3
+
+# ── Backends ──────────────────────────────────────────────────────────────────
+
+[[backends]]
+name            = "turboquant-primary"
+url             = "http://127.0.0.1:11434"
+model           = "qwopus3.6-27b-v2"
+priority        = 1
+health_endpoint = "/health"
+
+[[backends]]
+name            = "zai-cloud"
+url             = "https://api.z.ai"
+model           = "glm-4.7"
+priority        = 4
+health_endpoint = ""
+path_rewrite    = "/v1/chat/completions=/api/coding/paas/v4/chat/completions"
+api_key_env     = "ZAI_API_KEY"
+
+[[backends]]
+name            = "zai-cloud-turbo"
+url             = "https://api.z.ai"
+model           = "glm-5-turbo"
+priority        = 5
+health_endpoint = ""
+path_rewrite    = "/v1/chat/completions=/api/coding/paas/v4/chat/completions"
+api_key_env     = "ZAI_API_KEY"
+
+[[backends]]
+name            = "zai-cloud-think"
+url             = "https://api.z.ai"
+model           = "glm-5.1"
+priority        = 6
+health_endpoint = ""
+path_rewrite    = "/v1/chat/completions=/api/coding/paas/v4/chat/completions"
+api_key_env     = "ZAI_API_KEY"
+
+[[backends]]
+name            = "zai-cloud-5.2"
+url             = "https://api.z.ai"
+model           = "glm-5.2"
+priority        = 6
+health_endpoint = ""
+path_rewrite    = "/v1/chat/completions=/api/coding/paas/v4/chat/completions"
+api_key_env     = "ZAI_API_KEY"
+
+[[backends]]
+name            = "zai-cloud-air"
+url             = "https://api.z.ai"
+model           = "glm-4.5-air"
+priority        = 7
+health_endpoint = ""
+path_rewrite    = "/v1/chat/completions=/api/coding/paas/v4/chat/completions"
+api_key_env     = "ZAI_API_KEY"
+
+# ── Claude (via claude-cli-proxy :8095, wraps official `claude -p` headless) ───
+
+[[backends]]
+name            = "claude-opus"
+url             = "http://127.0.0.1:8095"
+model           = "claude-opus-4-8"
+priority        = 1
+health_endpoint = "/health"
+
+[[backends]]
+name            = "claude-sonnet"
+url             = "http://127.0.0.1:8095"
+model           = "claude-sonnet-4-6"
+priority        = 1
+health_endpoint = "/health"
+
+[[backends]]
+name            = "claude-haiku"
+url             = "http://127.0.0.1:8095"
+model           = "claude-haiku-4-5"
+priority        = 1
+health_endpoint = "/health"
+
+# ── OpenAI (via chatgpt-proxy :8094, Codex CLI OAuth) ─────────────────────────
+
+[[backends]]
+name            = "gpt-5.5"
+url             = "http://127.0.0.1:8094"
+model           = "gpt-5.5"
+priority        = 1
+health_endpoint = "/health"
+
+[[backends]]
+name            = "gpt-5-mini"
+url             = "http://127.0.0.1:8094"
+model           = "gpt-5.4-mini"   # chatgpt-proxy serves gpt-5.4-mini, not "gpt-5-mini"
+priority        = 1
+health_endpoint = "/health"
+
+# ── Fusion (via Python sidecar :8500, panel fan-out + judge + synth) ──────────
+
+[[backends]]
+name            = "fusion-frontier"
+url             = "http://127.0.0.1:8500"
+model           = "hivemind/fusion-frontier"
+priority        = 1
+
+[[backends]]
+name            = "fusion-balanced"
+url             = "http://127.0.0.1:8500"
+model           = "hivemind/fusion-balanced"
+priority        = 1
+
+[[backends]]
+name            = "fusion-budget"
+url             = "http://127.0.0.1:8500"
+model           = "hivemind/fusion-budget"
+priority        = 1
+
+[[backends]]
+name            = "fusion-improve-advisor"
+url             = "http://127.0.0.1:8500"
+model           = "hivemind/fusion-improve-advisor"
+priority        = 1
+# Improve integration — audit, vet, plan writing — needs judgment
+# backends: claude-opus | fallback: claude-sonnet
+max_output_tokens = 65536
+timeout_ms        = 120000
+
+[[backends]]
+name            = "fusion-improve-executor"
+url             = "http://127.0.0.1:8500"
+model           = "hivemind/fusion-improve-executor"
+priority        = 1
+# Improve integration — plan execution — mechanical edits from clear spec
+# backends: claude-sonnet | fallback: turboquant-primary
+max_output_tokens = 32768
+timeout_ms        = 180000
+
+[[backends]]
+name            = "fusion-improve-reviewer"
+url             = "http://127.0.0.1:8500"
+model           = "hivemind/fusion-improve-reviewer"
+priority        = 1
+# Improve integration — verdict decisions — APPROVE/REVISE/BLOCK
+# backends: claude-opus | fallback: claude-sonnet
+max_output_tokens = 16384
+timeout_ms        = 60000
+
+[[backends]]
+name            = "fusion-improve-recon-local"
+url             = "http://127.0.0.1:8500"
+model           = "hivemind/fusion-improve-recon-local"
+priority        = 1
+# Improve integration — git churn, file scanning, dep detection — zero Claude cost
+# backends: turboquant-primary | fallback: zai-cloud-turbo
+max_output_tokens = 8192
+timeout_ms        = 30000
+
+# ── PII Shield ────────────────────────────────────────────────────────────────
+
+[pii]
+endpoint          = "http://127.0.0.1:5100/scan"
+enabled           = true
+bypass_on_failure = false
+timeout_ms        = 500
+
+# ── Models ────────────────────────────────────────────────────────────────────
+
+[models]
+dir     = "/mnt/olympus/LLMs/gguf"
+default = "qwopus3.6-27b-v2"
+
+# ── Embeddings ────────────────────────────────────────────────────────────────
+
+[embed]
+endpoint = "http://127.0.0.1:11434"
+model    = "qwen2.5:0.5b"
+
+# ── RAG Context Injection ────────────────────────────────────────────────────
+
+[rag.consumers.openclaude]
+enabled    = true
+collection = "knowledge_graph"
+top_k      = 5
+min_score  = 0.7
+
+[rag.consumers.ralph-swarm]
+enabled    = true
+collection = "knowledge_graph"
+top_k      = 3
+min_score  = 0.75
+
+[rag.consumers.rlm-swarm]
+enabled    = true
+collection = "knowledge_graph"
+top_k      = 3
+min_score  = 0.75
+
+[rag.consumers.ceo-agent]
+enabled    = true
+collection = "knowledge_graph"
+top_k      = 5
+min_score  = 0.7
+
+# ── Rate Limits ───────────────────────────────────────────────────────────────
+
+[rate_limit]
+default_requests_per_minute = 60
+default_burst               = 10
+
+[rate_limit.consumers.openclaude]
+requests_per_minute = 0
+burst               = 0
+
+[rate_limit.consumers.ralph-swarm]
+requests_per_minute = 60
+burst               = 20
+
+[rate_limit.consumers.siteops]
+requests_per_minute = 120
+burst               = 30
+
+[rate_limit.consumers.contractpilot]
+requests_per_minute = 120
+burst               = 30
+
+[rate_limit.consumers.compliancebot]
+requests_per_minute = 120
+burst               = 30
+
+[rate_limit.consumers.magicdocs]
+requests_per_minute = 120
+burst               = 30
+
+[rate_limit.consumers.rlm-swarm]
+requests_per_minute = 120
+burst               = 40
+
+[rate_limit.consumers.ceo-agent]
+requests_per_minute = 30
+burst               = 10
+
+# ── Qdrant ────────────────────────────────────────────────────────────────────
+
+[qdrant]
+endpoint   = "http://127.0.0.1:6333"
+collection = "knowledge_graph"
+
+# ── Headroom Compression ──────────────────────────────────────────────────────
+
+[compression]
+enabled      = true
+endpoint     = "http://127.0.0.1:9103"
+min_body_size = 1000
+timeout_ms   = 1000

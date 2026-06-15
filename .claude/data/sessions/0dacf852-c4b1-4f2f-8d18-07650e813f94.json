@@ -1,0 +1,8 @@
+{
+  "session_id": "0dacf852-c4b1-4f2f-8d18-07650e813f94",
+  "prompts": [
+    "this is the latest version of llama.cpp https://github.com/ggml-org/llama.cpp it allegedly has MTP support now can you check if we can make it work with this repo update?",
+    "still broken",
+    "commit this and push to forgejo"
+  ]
+}

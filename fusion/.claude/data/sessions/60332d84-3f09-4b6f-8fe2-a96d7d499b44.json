@@ -1,0 +1,14 @@
+{
+  "session_id": "60332d84-3f09-4b6f-8fe2-a96d7d499b44",
+  "prompts": [
+    "I am having issues 'ssh batkave' from the k11 machine ti just hangs I dont get a rpompt and I try to type 'vw-unlock' from a ssh pook@batkave cli and nothing happens",
+    "1. I get the prompt but it takes like 45 seconds after the SSH makes a connection, whcih si strange. 2. vw-unlock is broken, it just hangs, it doesnt prompt me to enter any passwords or emails to unlock the vault",
+    "ok try using vaultwarden, it is unlocked allegedly",
+    "<task-notification>\n<task-id>b44ziv96i</task-id>\n<tool-use-id>call_9e799104c4494a008636d0d3</tool-use-id>\n<output-file>/tmp/claude-1000/-home-pook/8190f7f8-33d4-4ca9-9874-c065f21364af/tasks/b44ziv96i.output</output-file>\n<status>completed</status>\n<summary>Background command \"Test fusion-budget tier\" completed (exit code 0)</summary>\n</task-notification>",
+    "<task-notification>\n<task-id>bp0wirsph</task-id>\n<tool-use-id>call_61362304743b424c8e7d6ef8</tool-use-id>\n<output-file>/tmp/claude-1000/-home-pook/8190f7f8-33d4-4ca9-9874-c065f21364af/tasks/bp0wirsph.output</output-file>\n<status>completed</status>\n<summary>Background command \"Test fusion-frontier tier\" completed (exit code 0)</summary>\n</task-notification>",
+    "how to refresh codex auth",
+    "I ran the command, check if it worked",
+    "command executed",
+    "<task-notification>\n<task-id>b9jvyc67p</task-id>\n<tool-use-id>call_de284e185d574163a4f69511</tool-use-id>\n<output-file>/tmp/claude-1000/-home-pook/8190f7f8-33d4-4ca9-9874-c065f21364af/tasks/b9jvyc67p.output</output-file>\n<status>completed</status>\n<summary>Background command \"Full 4-panelist fusion test\" completed (exit code 0)</summary>\n</task-notification>"
+  ]
+}

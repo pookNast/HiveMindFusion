@@ -1,0 +1,26 @@
+# Build artifacts
+hivemind-gw
+hivemind-ctl
+*.exe
+*.test
+*.out
+
+# Logs (runtime state, not source)
+logs/
+fusion/logs/
+*.log
+
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Editor / OS
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# ponytail: no secrets filter line — upgrade: add *.env, *.key, etc. when secrets land here

@@ -1,0 +1,12 @@
+{
+  "session_id": "fbb847cb-daf6-46c0-95fc-d1e6c246534c",
+  "prompts": [
+    "<task-notification>\n<task-id>brb1r9efk</task-id>\n<tool-use-id>toolu_018VfiPhZKbUvXYHiauqgYxu</tool-use-id>\n<output-file>/tmp/claude-1000/-home-pook/8673f8c3-a36e-4556-88ab-ac4490f4ca47/tasks/brb1r9efk.output</output-file>\n<status>completed</status>\n<summary>Background command \"12-minute poll: check swarm progress\" completed (exit code 0)</summary>\n</task-notification>",
+    "<task-notification>\n<task-id>b68n2n4be</task-id>\n<tool-use-id>toolu_01GdwKpKVyVWATc9BymNsPht</tool-use-id>\n<output-file>/tmp/claude-1000/-home-pook/8673f8c3-a36e-4556-88ab-ac4490f4ca47/tasks/b68n2n4be.output</output-file>\n<status>completed</status>\n<summary>Background command \"12-minute poll for round 3\" completed (exit code 0)</summary>\n</task-notification>",
+    "<task-notification>\n<task-id>bbmh2l57r</task-id>\n<tool-use-id>toolu_01RCCxdmjc3WMmHTeTjGLk4w</tool-use-id>\n<output-file>/tmp/claude-1000/-home-pook/8673f8c3-a36e-4556-88ab-ac4490f4ca47/tasks/bbmh2l57r.output</output-file>\n<status>completed</status>\n<summary>Background command \"Final poll - check for completion\" completed (exit code 0)</summary>\n</task-notification>",
+    "go",
+    "<task-notification>\n<task-id>bmi7diewh</task-id>\n<tool-use-id>toolu_01P2Db523buPAJYRSuYZ4gr6</tool-use-id>\n<output-file>/tmp/claude-1000/-home-pook/8673f8c3-a36e-4556-88ab-ac4490f4ca47/tasks/bmi7diewh.output</output-file>\n<status>completed</status>\n<summary>Background command \"10-minute poll for W6 completion\" completed (exit code 0)</summary>\n</task-notification>",
+    "hello",
+    "We need a comprehensive milestone contract for all aspects of the dev deployment"
+  ]
+}
