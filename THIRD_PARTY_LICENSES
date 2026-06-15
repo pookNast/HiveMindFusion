@@ -1,0 +1,65 @@
+HiveMindFusion includes the following third-party software:
+
+================================================================================
+MIT License
+================================================================================
+
+github.com/BurntSushi/toml
+  Copyright (c) Andrew Gallant
+  https://github.com/BurntSushi/toml/blob/master/COPYING
+
+github.com/cespare/xxhash/v2
+  Copyright (c) Caleb Spare
+  https://github.com/cespare/xxhash/blob/main/LICENSE.txt
+
+openai (Python)
+  Copyright (c) OpenAI
+  https://github.com/openai/openai-python/blob/main/LICENSE
+
+tomli (Python)
+  Copyright (c) Taneli Hukkinen
+  https://github.com/hukkin/tomli/blob/master/LICENSE
+
+================================================================================
+Apache License 2.0
+================================================================================
+
+github.com/prometheus/client_golang
+  Copyright (c) Prometheus Authors
+  https://github.com/prometheus/client_golang/blob/main/LICENSE
+
+github.com/prometheus/client_model
+  Copyright (c) Prometheus Authors
+  https://github.com/prometheus/client_model/blob/main/LICENSE
+
+github.com/prometheus/common
+  Copyright (c) Prometheus Authors
+  https://github.com/prometheus/common/blob/main/LICENSE
+
+github.com/prometheus/procfs
+  Copyright (c) Prometheus Authors
+  https://github.com/prometheus/procfs/blob/main/LICENSE
+
+github.com/beorn7/perks
+  Copyright (c) Blake Mizerany
+  https://github.com/beorn7/perks/blob/master/LICENSE
+
+go.yaml.in/yaml
+  Copyright (c) Canonical Ltd.
+  https://github.com/go-yaml/yaml/blob/v3/LICENSE
+
+================================================================================
+BSD 3-Clause License
+================================================================================
+
+golang.org/x/sys
+  Copyright (c) The Go Authors
+  https://github.com/golang/sys/blob/master/LICENSE
+
+google.golang.org/protobuf
+  Copyright (c) The Go Authors
+  https://github.com/protocolbuffers/protobuf-go/blob/master/LICENSE
+
+github.com/munnerz/goautoneg
+  Copyright (c) Open Knowledge Foundation
+  https://github.com/munnerz/goautoneg/blob/master/LICENSE
