@@ -208,6 +208,26 @@ collection = "knowledge_graph"
 top_k      = 5
 min_score  = 0.7
 
+[rag.consumers.super-worker]
+enabled    = true
+collection = "knowledge_graph"
+top_k      = 3
+min_score  = 0.75
+# ponytail: top_k/min_score copied from ralph-swarm — upgrade: ship-measure-add per ponytail cache pattern
+
+# ── Consumer API Key Mapping ──────────────────────────────────────────────────
+# Synthetic tokens (NOT secrets — gateway is auth-permissive, uses key only for
+# consumer identification). Lets queue-daemon.py route SSH-dispatched claude CLI
+# jobs to the right consumer bucket without custom HTTP headers (claude CLI
+# can't set X-HiveMind-Consumer). Token travels as ANTHROPIC_API_KEY env var.
+# ponytail: synthetic tokens, not real keys — upgrade: mTLS if consumer spoofing becomes a concern
+
+[consumers.api_keys]
+"sw-research" = "ralph-swarm"
+"sw-rlm"      = "rlm-swarm"
+"sw-panel"    = "super-worker-panel"
+"sw-default"  = "super-worker"
+
 # ── Rate Limits ───────────────────────────────────────────────────────────────
 
 [rate_limit]
@@ -245,6 +265,11 @@ burst               = 40
 [rate_limit.consumers.ceo-agent]
 requests_per_minute = 30
 burst               = 10
+
+[rate_limit.consumers.super-worker]
+requests_per_minute = 120
+burst               = 30
+# ponytail: 120/30 copied from siteops tier — upgrade: measure actual dispatch burst profile and tune
 
 # ── Qdrant ────────────────────────────────────────────────────────────────────
 
