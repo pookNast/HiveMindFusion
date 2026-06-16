@@ -10,7 +10,7 @@ import (
 var familyParams = map[string]map[string]any{
 	"claude": {"effort": "high"},
 	"gpt":    {"reasoning_effort": "medium"},
-	"glm":    {"temperature": 0.7, "top_p": 0.9, "repetition_penalty": 1.05},
+	"glm":    {"temperature": 1.0, "top_p": 0.95}, // ponytail: dropped repetition_penalty (llama.cpp-ism, not honored by Z.AI cloud) — values per GLM-5.2 blog (temp=1.0, top_p=0.95)
 	"qwen":   {"temperature": 0.7, "top_p": 0.8},
 }
 
@@ -24,6 +24,7 @@ var variantEffort = map[string]string{
 	"gpt-5.4-mini":      "medium",
 	"gpt-5.3-codex":     "high",
 	"gpt-5.2":           "medium",
+	"glm-5.2":           "high", // GLM-5.2 supports High/Max effort via thinking object (verified on coding/paas endpoint)
 }
 
 // FamilyOf detects model family from the slug.
@@ -82,6 +83,9 @@ func TransformForModel(spec map[string]any, model string) TransformResult {
 			params["effort"] = effort
 		case "gpt":
 			params["reasoning_effort"] = effort
+		case "glm":
+			// GLM-5.2 effort via thinking object — verified on Z.AI coding/paas endpoint.
+			params["thinking"] = map[string]any{"type": "enabled", "effort": effort}
 		}
 	}
 

@@ -112,10 +112,23 @@ func TestTransformForModel(t *testing.T) {
 		t.Errorf("claude-opus effort = %v, want xhigh", tr.Params["effort"])
 	}
 
-	// GLM
+	// GLM — blog-aligned params (temp=1.0, top_p=0.95, no repetition_penalty)
 	tr2 := TransformForModel(spec, "glm-5.1")
-	if _, ok := tr2.Params["repetition_penalty"]; !ok {
-		t.Error("expected repetition_penalty in glm params")
+	if tr2.Params["temperature"] != 1.0 {
+		t.Errorf("glm temperature = %v, want 1.0", tr2.Params["temperature"])
+	}
+	if tr2.Params["top_p"] != 0.95 {
+		t.Errorf("glm top_p = %v, want 0.95", tr2.Params["top_p"])
+	}
+
+	// GLM-5.2 effort via thinking object
+	tr5 := TransformForModel(spec, "glm-5.2")
+	thinking, ok := tr5.Params["thinking"].(map[string]any)
+	if !ok {
+		t.Fatal("expected thinking object for glm-5.2")
+	}
+	if thinking["effort"] != "high" {
+		t.Errorf("glm-5.2 thinking effort = %v, want high", thinking["effort"])
 	}
 
 	// Qwen/qwopus

@@ -65,6 +65,14 @@ priority        = 6
 health_endpoint = ""
 path_rewrite    = "/v1/chat/completions=/api/coding/paas/v4/chat/completions"
 api_key_env     = "ZAI_API_KEY"
+# GLM-5.2 (flagship, 1M context, High/Max effort). Effort is emitted by fusion
+# transforms.go as thinking={type:enabled,effort:high} for glm-5.2.
+# Cost/quota (per z.ai/blog/glm-5.2): 3x peak (14:00-18:00 UTC+8), 2x off-peak,
+# 1x off-peak promo through end of Sept 2026. No cost-tracking in gateway yet.
+# ponytail: no 1M-context backend — the "GLM-5.2[1m]" suffix is rejected on the
+# coding/paas endpoint (error 1211 Unknown Model); it only works via the
+# Anthropic-compatible Claude Code path. Standard glm-5.2 is correct here.
+# Upgrade: add Anthropic-compatible backend if a HiveMind consumer needs true 1M.
 
 [[backends]]
 name            = "zai-cloud-air"
