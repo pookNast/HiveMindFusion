@@ -102,65 +102,61 @@ model           = "gpt-5.4-mini"   # chatgpt-proxy serves gpt-5.4-mini, not "gpt
 priority        = 1
 health_endpoint = "/health"
 
-# ── Fusion (via Python sidecar :8500, panel fan-out + judge + synth) ──────────
+# ── Fusion (in-process multi-model consensus) ────────────────────────────────
+# Replaces the Python sidecar (:8500). Panels route directly to backends above.
 
-[[backends]]
-name            = "fusion-frontier"
-url             = "http://127.0.0.1:8500"
-model           = "hivemind/fusion-frontier"
-priority        = 1
+[fusion]
+enabled = true
 
-[[backends]]
-name            = "fusion-balanced"
-url             = "http://127.0.0.1:8500"
-model           = "hivemind/fusion-balanced"
-priority        = 1
+[fusion.panels.frontier]
+panelists  = ["claude-opus-4-8", "gpt-5.5", "glm-5.2", "qwopus3.6-27b-v2"]
+judge      = "glm-5.1"
+synth      = "claude-sonnet-4-6"
+timeout_ms = 90000
 
-[[backends]]
-name            = "fusion-budget"
-url             = "http://127.0.0.1:8500"
-model           = "hivemind/fusion-budget"
-priority        = 1
+[fusion.panels.balanced]
+panelists  = ["claude-sonnet-4-6", "gpt-5.5", "glm-5.2", "qwopus3.6-27b-v2"]
+judge      = "glm-5.1"
+synth      = "glm-5.1"
+timeout_ms = 60000
 
-[[backends]]
-name            = "fusion-improve-advisor"
-url             = "http://127.0.0.1:8500"
-model           = "hivemind/fusion-improve-advisor"
-priority        = 1
-# Improve integration — audit, vet, plan writing — needs judgment
-# backends: claude-opus | fallback: claude-sonnet
-max_output_tokens = 65536
-timeout_ms        = 120000
+[fusion.panels.budget]
+panelists  = ["claude-haiku-4-5", "gpt-5.4-mini", "glm-4.5-air", "qwopus3.6-27b-v2"]
+judge      = "glm-5.1"
+synth      = "glm-5.1"
+timeout_ms = 45000
 
-[[backends]]
-name            = "fusion-improve-executor"
-url             = "http://127.0.0.1:8500"
-model           = "hivemind/fusion-improve-executor"
-priority        = 1
-# Improve integration — plan execution — mechanical edits from clear spec
-# backends: claude-sonnet | fallback: turboquant-primary
-max_output_tokens = 32768
-timeout_ms        = 180000
+[fusion.panels.test]
+# ponytail: test tier using only working backends — upgrade: remove once ZAI + OpenAI auth restored
+panelists  = ["claude-sonnet-4-6", "claude-haiku-4-5", "qwopus3.6-27b-v2"]
+judge      = "claude-haiku-4-5"
+synth      = "claude-sonnet-4-6"
+timeout_ms = 60000
 
-[[backends]]
-name            = "fusion-improve-reviewer"
-url             = "http://127.0.0.1:8500"
-model           = "hivemind/fusion-improve-reviewer"
-priority        = 1
-# Improve integration — verdict decisions — APPROVE/REVISE/BLOCK
-# backends: claude-opus | fallback: claude-sonnet
-max_output_tokens = 16384
-timeout_ms        = 60000
+[fusion.panels.improve-advisor]
+panelists  = ["claude-opus-4-8", "glm-5.2", "gpt-5.5"]
+judge      = "claude-haiku-4-5"
+synth      = "glm-5.1"
+timeout_ms = 120000
 
-[[backends]]
-name            = "fusion-improve-recon-local"
-url             = "http://127.0.0.1:8500"
-model           = "hivemind/fusion-improve-recon-local"
-priority        = 1
-# Improve integration — git churn, file scanning, dep detection — zero Claude cost
-# backends: turboquant-primary | fallback: zai-cloud-turbo
-max_output_tokens = 8192
-timeout_ms        = 30000
+[fusion.panels.improve-reviewer]
+panelists  = ["claude-opus-4-8", "claude-sonnet-4-6", "glm-5.2"]
+judge      = "claude-haiku-4-5"
+synth      = "glm-5.1"
+timeout_ms = 60000
+
+[fusion.panels.improve-executor]
+panelists  = ["claude-sonnet-4-6", "qwopus3.6-27b-v2"]
+judge      = "claude-haiku-4-5"
+synth      = "claude-sonnet-4-6"
+timeout_ms = 180000
+
+[fusion.panels.improve-recon-local]
+# ponytail: degenerate single-model panel — upgrade: gateway model alias, bypass fusion entirely
+panelists  = ["qwopus3.6-27b-v2"]
+judge      = "qwopus3.6-27b-v2"
+synth      = "qwopus3.6-27b-v2"
+timeout_ms = 30000
 
 # ── PII Shield ────────────────────────────────────────────────────────────────
 

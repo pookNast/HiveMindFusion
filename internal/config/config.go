@@ -107,6 +107,22 @@ type Compression struct {
 	TimeoutMs    int    `toml:"timeout_ms"`
 }
 
+// FusionPanel defines a single fusion tier's model roster.
+type FusionPanel struct {
+	Panelists   []string `toml:"panelists"`
+	Judge       string   `toml:"judge"`
+	Synth       string   `toml:"synth"`
+	Deliberator string   `toml:"deliberator"`
+	TimeoutMs   int      `toml:"timeout_ms"`
+	MinQuorum   int      `toml:"min_quorum"`
+}
+
+// Fusion configures the in-process multi-model orchestrator.
+type Fusion struct {
+	Enabled bool                    `toml:"enabled"`
+	Panels  map[string]FusionPanel  `toml:"panels"`
+}
+
 // Config is the top-level configuration structure.
 type Config struct {
 	Gateway   Gateway         `toml:"gateway"`
@@ -119,6 +135,7 @@ type Config struct {
 	Embed       Embed        `toml:"embed"`
 	RAG         RAG          `toml:"rag"`
 	Compression Compression  `toml:"compression"`
+	Fusion      Fusion       `toml:"fusion"`
 }
 
 // Load reads the config from HIVEMIND_CONFIG env var or the default path.
@@ -188,6 +205,26 @@ func (c *Config) validate() error {
 
 	if c.Qdrant.Endpoint == "" {
 		errs = append(errs, &ValidationError{Field: "qdrant.endpoint", Message: "required"})
+	}
+
+	if c.Fusion.Enabled {
+		if len(c.Fusion.Panels) == 0 {
+			errs = append(errs, &ValidationError{Field: "fusion.panels", Message: "at least one panel required when fusion is enabled"})
+		}
+		for name, p := range c.Fusion.Panels {
+			if len(p.Panelists) == 0 {
+				errs = append(errs, &ValidationError{Field: fmt.Sprintf("fusion.panels.%s.panelists", name), Message: "required"})
+			}
+			if p.Judge == "" {
+				errs = append(errs, &ValidationError{Field: fmt.Sprintf("fusion.panels.%s.judge", name), Message: "required"})
+			}
+			if p.Synth == "" {
+				errs = append(errs, &ValidationError{Field: fmt.Sprintf("fusion.panels.%s.synth", name), Message: "required"})
+			}
+			if p.TimeoutMs == 0 {
+				errs = append(errs, &ValidationError{Field: fmt.Sprintf("fusion.panels.%s.timeout_ms", name), Message: "required"})
+			}
+		}
 	}
 
 	return errors.Join(errs...)

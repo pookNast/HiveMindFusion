@@ -38,3 +38,13 @@ default = "glm-flash:latest"
 
 [qdrant]
 endpoint = "http://localhost:6333"
+
+# ── Fusion (multi-model consensus) ───────────────────────────────────────────
+[fusion]
+enabled = false
+
+[fusion.panels.balanced]
+panelists  = ["glm-flash:latest", "qwen2.5:0.5b"]
+judge      = "glm-flash:latest"
+synth      = "glm-flash:latest"
+timeout_ms = 60000
