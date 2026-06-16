@@ -1,6 +1,6 @@
 # Hivemind Gateway — BatKave Production Config
 # Host: BatKave (RTX 4090, 24 GB VRAM)
-# Primary: TurboQuant (qwopus, llama-server) :11434 | Carousel secondary: Gemma4 MoE :11435 | Fallback: VPS via Headscale
+# Primary: TurboQuant (qwopus, llama-server) :11434 | Embeddings: Ollama nomic-embed :11435 | Carousel secondary: Gemma4 MoE :11436 | Fallback: VPS via Headscale
 
 [gateway]
 port                    = 8400
@@ -20,7 +20,7 @@ health_endpoint = "/health"
 
 [[backends]]
 name            = "gemma4-moe"
-url             = "http://127.0.0.1:11435"
+url             = "http://127.0.0.1:11436"
 model           = "gemma4-26b-a4b"
 priority        = 2
 health_endpoint = "/health"
