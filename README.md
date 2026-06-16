@@ -8,35 +8,38 @@ Multi-model AI gateway with fusion orchestration. Routes requests across local a
 Client (OpenAI SDK)
     │
     ▼
-┌─────────────────────────────────────┐
-│  HiveMind Gateway (:8400)           │
-│  ┌───────────┐  ┌────────────────┐  │
-│  │ PII Shield│  │ RAG Middleware  │  │
-│  └─────┬─────┘  └───────┬────────┘  │
-│        ▼                ▼           │
-│  ┌──────────────────────────────┐   │
-│  │   Router / Fallback Chains   │   │
-│  └──┬───────┬───────┬───────┬───┘   │
-└─────┼───────┼───────┼───────┼───────┘
-      ▼       ▼       ▼       ▼
-   Ollama   Claude  Z.AI    Fusion
-   :11434   Proxy   Cloud   Sidecar
-                            :8500
-                              │
-                    ┌─────────┼─────────┐
-                    ▼         ▼         ▼
-                 Panelist  Panelist  Panelist
-                    │         │         │
-                    └────┬────┘         │
-                         ▼              │
-                       Judge            │
-                         ▼              │
-                     Synthesizer ◄──────┘
+┌──────────────────────────────────────────┐
+│  HiveMind Gateway (:8400)                │
+│  ┌───────────┐  ┌────────────────┐       │
+│  │ PII Shield│  │ RAG Middleware  │       │
+│  └─────┬─────┘  └───────┬────────┘       │
+│        ▼                ▼                │
+│  ┌──────────────────────────────────┐    │
+│  │   Router / Fallback Chains       │    │
+│  └──┬───────┬───────┬───────┬───────┘    │
+│     │       │       │       │            │
+│     │  ┌────┴────────┴──────┐            │
+│     │  │  Fusion Engine     │            │
+│     │  │  (in-process)      │            │
+│     │  │                    │            │
+│     │  │  deliberate        │            │
+│     │  │    ▼               │            │
+│     │  │  fan-out ──────────┼──┐         │
+│     │  │    ▼               │  │         │
+│     │  │  judge             │  │         │
+│     │  │    ▼               │  │         │
+│     │  │  synthesize        │  │         │
+│     │  └────────────────────┘  │         │
+│     │                          │         │
+└─────┼──────────────────────────┼─────────┘
+      ▼                          ▼
+   Ollama   Claude   Z.AI    (direct backend calls)
+   :11434   Proxy    Cloud
 ```
 
 **Gateway** (Go) — OpenAI-compatible reverse proxy with priority-based backend routing, health checks, consumer rate limiting, Prometheus metrics, and SIGHUP config reload.
 
-**Fusion Sidecar** (Python) — Multi-model orchestrator that fans out prompts to panelist models, judges responses for consensus, and synthesizes a final answer. Configurable tiers trade off quality vs cost.
+**Fusion Engine** (Go, in-process) — Multi-model orchestrator that fans out prompts to panelist models, judges responses for consensus, and synthesizes a final answer. Runs inside the gateway process — no separate sidecar, no duplicate PII/RAG passes. Configurable tiers trade off quality vs cost.
 
 ## Features
 
@@ -87,13 +90,8 @@ cp config.example.toml config.toml
 ### Run
 
 ```bash
-# Start the gateway
+# Start the gateway (fusion runs in-process when enabled in config)
 ./hivemind-gw --config config.toml
-
-# Start the fusion sidecar (optional)
-cd fusion
-pip install -r requirements.txt
-python -m uvicorn server:app --host 127.0.0.1 --port 8500
 ```
 
 ### Use
@@ -202,10 +200,7 @@ hivemind-ctl vram
 | 8400 | `GET /v1/models` | List available models |
 | 8401 | `GET /health` | Backend health status |
 | 8402 | `GET /metrics` | Prometheus metrics |
-| 8500 | `GET /health` | Fusion sidecar health |
-| 8500 | `GET /panels` | List fusion tier configurations |
-| 8500 | `GET /v1/models` | List fusion virtual models |
-| 8500 | `POST /v1/chat/completions` | Fusion consensus endpoint |
+| 8401 | `GET /panels` | Fusion tier configurations |
 
 ## Signals
 
@@ -234,17 +229,12 @@ cmd/
   hivemind-ctl/      CLI management tool
 internal/
   config/            TOML config loader + validation
-  gateway/           Proxy, routing, health, metrics, consumers
+  fusion/            In-process fusion orchestrator (deliberate → fan-out → judge → synthesize)
+  gateway/           Proxy, routing, health, metrics, consumers, fusion wiring
   models/            GGUF scanning, llama-server launcher, hot swap
   pii/               PII Shield client + redaction middleware
   rag/               Qdrant client + RAG injection middleware
   vram/              NVIDIA VRAM calculator (NVML)
-fusion/
-  server.py          FastAPI sidecar (OpenAI-compatible)
-  orchestrator.py    Deliberate → fan-out → judge → synthesize pipeline
-  backends.py        Backend client wrapper
-  panels.toml        Fusion tier definitions
-  config.py          Fusion config loader
 config/
   batkave.toml       Production config example
 config.example.toml  Minimal starter config
