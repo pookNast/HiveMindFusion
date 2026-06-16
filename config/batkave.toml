@@ -1,6 +1,6 @@
 # Hivemind Gateway — BatKave Production Config
 # Host: BatKave (RTX 4090, 24 GB VRAM)
-# Primary: TurboQuant (llama-server) :11434 | Secondary: Ollama :11435 | Fallback: VPS via Headscale
+# Primary: TurboQuant (qwopus, llama-server) :11434 | Carousel secondary: Gemma4 MoE :11435 | Fallback: VPS via Headscale
 
 [gateway]
 port                    = 8400
@@ -17,6 +17,18 @@ url             = "http://127.0.0.1:11434"
 model           = "qwopus3.6-27b-v2"
 priority        = 1
 health_endpoint = "/health"
+
+[[backends]]
+name            = "gemma4-moe"
+url             = "http://127.0.0.1:11435"
+model           = "gemma4-26b-a4b"
+priority        = 2
+health_endpoint = "/health"
+# ponytail: priority=2 = standby — gateway routes here only when turboquant-primary
+# is unhealthy (carousel swapped it out). Health checker (10s poll, 3-fail ≈ 30s to
+# mark dead) reconciles after a swap, so no SIGHUP/config-rewrite on model change.
+# Upgrade: add an admin endpoint to force a health re-probe on swap if the ~30s
+# window hurts dispatch during Phase 3 fusion sequential fan-out.
 
 [[backends]]
 name            = "zai-cloud"
