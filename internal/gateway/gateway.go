@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -28,6 +29,9 @@ type Gateway struct {
 	// config changes apply without restarting the listener.
 	liveHandler atomic.Value
 
+	// currentProxy holds the current proxy for admin endpoint access (e.g. /panels).
+	currentProxy atomic.Value
+
 	// stored for Shutdown
 	proxyServer   *http.Server
 	adminServer   *http.Server
@@ -53,6 +57,8 @@ func New(cfg *config.Config) *Gateway {
 // the atomic store otherwise).
 func (g *Gateway) buildProxyHandler(cfg *config.Config) http.HandlerFunc {
 	p := newProxy(cfg, g.health, g.metrics, g.consumer.Identify)
+	g.currentProxy.Store(p)
+
 	proxyMux := http.NewServeMux()
 	g.setupRoutes(proxyMux, p)
 
@@ -77,7 +83,12 @@ func (g *Gateway) Reload(cfg *config.Config) {
 
 	g.health.UpdateConfig(cfg)
 	g.liveHandler.Store(g.buildProxyHandler(cfg))
-	log.Printf("[hivemind] reload applied: %d backends, PII=%v", len(cfg.Backends), cfg.PII.Enabled)
+	fusionTiers := 0
+	if cfg.Fusion.Enabled {
+		fusionTiers = len(cfg.Fusion.Panels)
+	}
+	log.Printf("[hivemind] reload applied: %d backends, PII=%v, fusion=%v (%d tiers)",
+		len(cfg.Backends), cfg.PII.Enabled, cfg.Fusion.Enabled, fusionTiers)
 }
 
 // Run starts all three servers concurrently. Returns the first non-close error.
@@ -94,6 +105,7 @@ func (g *Gateway) Run() error {
 	adminMux.Handle("/health", g.health)
 	adminMux.Handle("/admin/ingest", rag.NewIngester(cfg))
 	adminMux.HandleFunc("/admin/usage", g.consumer.HandleUsage)
+	adminMux.HandleFunc("/panels", g.handlePanels)
 
 	metricsMux := http.NewServeMux()
 	metricsMux.Handle("/metrics", promhttp.HandlerFor(g.reg, promhttp.HandlerOpts{}))
@@ -165,4 +177,16 @@ func (g *Gateway) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"status":"ok"}`)) //nolint:errcheck
+}
+
+// handlePanels serves GET /panels — returns fusion tier configurations.
+func (g *Gateway) handlePanels(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	proxy, ok := g.currentProxy.Load().(*Proxy)
+	if !ok || proxy.fusionEngine == nil {
+		json.NewEncoder(w).Encode(map[string]any{"panels": map[string]any{}, "enabled": false})
+		return
+	}
+	panels := proxy.fusionEngine.Panels()
+	json.NewEncoder(w).Encode(map[string]any{"panels": panels, "enabled": true})
 }

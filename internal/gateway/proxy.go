@@ -2,18 +2,20 @@ package gateway
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"io"
 	"log"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/pooknast/HiveMindFusion/internal/config"
+	"github.com/pooknast/HiveMindFusion/internal/fusion"
 	"github.com/pooknast/HiveMindFusion/internal/rag"
 )
 
@@ -26,6 +28,7 @@ type Proxy struct {
 	ragHandlers  map[string]*rag.Middleware // consumer name → RAG middleware (nil if disabled)
 	consumerFunc func(*http.Request) string // injected: resolves consumer from request
 	compressor   *Compressor                // headroom-srv compression sidecar (nil if disabled)
+	fusionEngine *fusion.Engine             // in-process fusion orchestrator (nil if disabled)
 }
 
 func newProxy(cfg *config.Config, hc *HealthChecker, metrics *Metrics, consumerFunc func(*http.Request) string) *Proxy {
@@ -57,7 +60,7 @@ func newProxy(cfg *config.Config, hc *HealthChecker, metrics *Metrics, consumerF
 		}
 	}
 
-	return &Proxy{
+	p := &Proxy{
 		backends:     buildFallbackChain(cfg.Backends),
 		health:       hc,
 		metrics:      metrics,
@@ -66,6 +69,14 @@ func newProxy(cfg *config.Config, hc *HealthChecker, metrics *Metrics, consumerF
 		consumerFunc: consumerFunc,
 		compressor:   NewCompressor(cfg.Compression),
 	}
+
+	// Wire fusion engine if enabled — uses backendCaller to dispatch directly
+	// through the proxy's own transport (no loopback through the listener).
+	if cfg.Fusion.Enabled {
+		p.fusionEngine = fusion.New(cfg.Fusion, p.backendCaller)
+	}
+
+	return p
 }
 
 type modelField struct {
@@ -93,6 +104,19 @@ func (p *Proxy) routeRequest(w http.ResponseWriter, r *http.Request) {
 	if err := json.Unmarshal(body, &req); err != nil || req.Model == "" {
 		writeJSONError(w, http.StatusBadRequest, "model field required")
 		return
+	}
+
+	// Fusion models are handled in-process — no backend routing.
+	if p.fusionEngine != nil {
+		tier := fusion.ExtractTier(req.Model)
+		if tier != "" {
+			if !p.fusionEngine.HasTier(tier) {
+				writeJSONError(w, http.StatusNotFound, fmt.Sprintf("unknown fusion tier: %s (available: %v)", tier, p.fusionEngine.TierNames()))
+				return
+			}
+			p.handleFusionRequest(w, r, body, tier)
+			return
+		}
 	}
 
 	chain, ok := p.backends[req.Model]
@@ -237,7 +261,6 @@ func (p *Proxy) handleModels(w http.ResponseWriter, r *http.Request) {
 
 	models := make([]modelObj, 0, len(p.backends))
 	for name, chain := range p.backends {
-		// Report the primary (highest-priority) backend as owner.
 		owner := ""
 		if len(chain) > 0 {
 			owner = chain[0].Name
@@ -248,11 +271,195 @@ func (p *Proxy) handleModels(w http.ResponseWriter, r *http.Request) {
 			OwnedBy: owner,
 		})
 	}
+	// Add fusion virtual models
+	if p.fusionEngine != nil {
+		for _, tier := range p.fusionEngine.TierNames() {
+			models = append(models, modelObj{
+				ID:      "hivemind/fusion-" + tier,
+				Object:  "model",
+				OwnedBy: "hivemind-fusion",
+			})
+		}
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(modelsResp{Object: "list", Data: models})
 }
 
+
+// backendCaller implements fusion.BackendCaller — calls a specific backend model
+// directly through the proxy's HTTP transport (no gateway loopback).
+func (p *Proxy) backendCaller(ctx context.Context, model string, messages []fusion.Message) (fusion.BackendResponse, error) {
+	chain, ok := p.backends[model]
+	if !ok {
+		return fusion.BackendResponse{Model: model, Error: "unknown model"}, fmt.Errorf("unknown model: %s", model)
+	}
+
+	// Build a minimal OpenAI request body
+	type chatReq struct {
+		Model    string           `json:"model"`
+		Messages []fusion.Message `json:"messages"`
+	}
+	reqBody, _ := json.Marshal(chatReq{Model: model, Messages: messages})
+
+	start := time.Now()
+
+	// Walk the fallback chain for a healthy backend
+	for _, backend := range chain {
+		if !p.health.IsHealthy(backend.Name) {
+			continue
+		}
+
+		target, err := url.Parse(backend.URL)
+		if err != nil {
+			continue
+		}
+
+		reqURL := fmt.Sprintf("%s://%s/v1/chat/completions", target.Scheme, target.Host)
+		if backend.PathRewrite != "" {
+			if old, nw, ok := parsePathRewrite(backend.PathRewrite); ok && old == "/v1/chat/completions" {
+				reqURL = fmt.Sprintf("%s://%s%s", target.Scheme, target.Host, nw)
+			}
+		}
+
+		httpReq, err := http.NewRequestWithContext(ctx, "POST", reqURL, bytes.NewReader(reqBody))
+		if err != nil {
+			continue
+		}
+		httpReq.Header.Set("Content-Type", "application/json")
+		if backend.APIKey != "" {
+			httpReq.Header.Set("Authorization", "Bearer "+backend.APIKey)
+		}
+
+		resp, err := p.transport.RoundTrip(httpReq)
+		if err != nil {
+			log.Printf("[fusion] transport error calling %s via %s: %v", model, backend.Name, err)
+			continue
+		}
+		defer resp.Body.Close()
+
+		respBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fusion.BackendResponse{Model: model, Error: "read error"}, err
+		}
+
+		latencyMs := int(time.Since(start).Milliseconds())
+
+		// Parse OpenAI response to extract content
+		var oaiResp struct {
+			Choices []struct {
+				Message struct {
+					Content          string `json:"content"`
+					ReasoningContent string `json:"reasoning_content"`
+				} `json:"message"`
+			} `json:"choices"`
+			Usage struct {
+				TotalTokens int `json:"total_tokens"`
+			} `json:"usage"`
+		}
+		if err := json.Unmarshal(respBody, &oaiResp); err != nil {
+			return fusion.BackendResponse{Model: model, Content: string(respBody), LatencyMs: latencyMs}, nil
+		}
+
+		content := ""
+		tokens := 0
+		if len(oaiResp.Choices) > 0 {
+			content = oaiResp.Choices[0].Message.Content
+			if content == "" {
+				content = oaiResp.Choices[0].Message.ReasoningContent
+			}
+		}
+		tokens = oaiResp.Usage.TotalTokens
+
+		return fusion.BackendResponse{
+			Model:     model,
+			Content:   content,
+			Tokens:    tokens,
+			LatencyMs: latencyMs,
+		}, nil
+	}
+
+	return fusion.BackendResponse{Model: model, Error: "all backends exhausted"}, fmt.Errorf("all backends exhausted for model: %s", model)
+}
+
+// handleFusionRequest handles fusion model requests in-process.
+func (p *Proxy) handleFusionRequest(w http.ResponseWriter, r *http.Request, body []byte, tier string) {
+	var req struct {
+		Messages []fusion.Message `json:"messages"`
+		Stream   bool             `json:"stream"`
+	}
+	if err := json.Unmarshal(body, &req); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Stream {
+		p.handleFusionStream(w, r, tier, req.Messages)
+		return
+	}
+
+	result, err := p.fusionEngine.RunFusion(r.Context(), tier, req.Messages)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Check for quorum error in the result
+	if errMsg, ok := result["error"].(string); ok {
+		writeJSONError(w, http.StatusBadGateway, errMsg)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
+// handleFusionStream streams fusion results as SSE.
+func (p *Proxy) handleFusionStream(w http.ResponseWriter, r *http.Request, tier string, messages []fusion.Message) {
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		writeJSONError(w, http.StatusInternalServerError, "streaming not supported")
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.WriteHeader(http.StatusOK)
+
+	ch := make(chan fusion.StreamChunk, 64)
+	completionID := fmt.Sprintf("fusion-%d", time.Now().UnixNano()%1e12)
+	created := time.Now().Unix()
+
+	go func() {
+		if err := p.fusionEngine.RunFusionStream(r.Context(), tier, messages, ch); err != nil {
+			log.Printf("[fusion] stream error: %v", err)
+		}
+	}()
+
+	for chunk := range ch {
+		var sseData map[string]any
+		if chunk.FinishReason == "stop" {
+			sseData = map[string]any{
+				"id": completionID, "object": "chat.completion.chunk",
+				"created": created, "model": "hivemind/fusion-" + tier,
+				"choices": []map[string]any{{"index": 0, "delta": map[string]any{}, "finish_reason": "stop"}},
+			}
+		} else {
+			sseData = map[string]any{
+				"id": completionID, "object": "chat.completion.chunk",
+				"created": created, "model": "hivemind/fusion-" + tier,
+				"choices": []map[string]any{{"index": 0, "delta": map[string]any{"content": chunk.Content}, "finish_reason": nil}},
+			}
+		}
+		data, _ := json.Marshal(sseData)
+		fmt.Fprintf(w, "data: %s\n\n", data)
+		flusher.Flush()
+	}
+
+	fmt.Fprint(w, "data: [DONE]\n\n")
+	flusher.Flush()
+}
 
 // parsePathRewrite parses a path rewrite rule "old=new".
 func parsePathRewrite(rule string) (old, new string, ok bool) {
