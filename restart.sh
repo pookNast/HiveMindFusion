@@ -35,7 +35,18 @@ elif [[ -f /opt/claude-glm/secrets ]]; then
   export ZAI_API_KEY=$(grep '^ZAI_API_KEY=' /opt/claude-glm/secrets | cut -d= -f2-)
 fi
 unset _zai_from_bw
-echo "Secrets loaded: ZAI_API_KEY=$([ -n "$ZAI_API_KEY" ] && echo 'OK' || echo 'MISSING')"
+
+# Auth token for HiveMind API auth middleware
+_hivemind_from_bw=$(timeout 8 bw get notes "HiveMind Auth Token" </dev/null 2>/dev/null | grep "^HIVEMIND_AUTH_TOKEN=" | cut -d= -f2-)
+if [[ -n "$_hivemind_from_bw" ]]; then
+  export HIVEMIND_AUTH_TOKEN="$_hivemind_from_bw"
+elif [[ -f /opt/claude-glm/secrets ]]; then
+  export HIVEMIND_AUTH_TOKEN=$(grep '^HIVEMIND_AUTH_TOKEN=' /opt/claude-glm/secrets | cut -d= -f2-)
+fi
+unset _hivemind_from_bw
+export HIVEMIND_REQUIRE_AUTH=true
+
+echo "Secrets loaded: ZAI_API_KEY=$([ -n "$ZAI_API_KEY" ] && echo 'OK' || echo 'MISSING') HIVEMIND_AUTH=$([ -n "$HIVEMIND_AUTH_TOKEN" ] && echo 'OK' || echo 'MISSING')"
 
 # --- Deploy ---
 sudo cp /home/pook/ralph/hivemind/hivemind-gw /usr/local/bin/hivemind-gw
@@ -43,7 +54,7 @@ echo "Binary copied OK"
 # Pass the Vaultwarden-sourced secret via the inherited environment (sudo --preserve-env),
 # NOT argv. `env ZAI_API_KEY=val` would expose the key to any local `ps aux`; the inherited
 # env lives in /proc/PID/environ, readable only by the process owner and root.
-sudo -u pook --preserve-env=ZAI_API_KEY /usr/local/bin/hivemind-gw --config /home/pook/ralph/hivemind/config/batkave.toml &>/tmp/hivemind-gw.log &
+sudo -u pook --preserve-env=ZAI_API_KEY,HIVEMIND_AUTH_TOKEN,HIVEMIND_REQUIRE_AUTH /usr/local/bin/hivemind-gw --config /home/pook/ralph/hivemind/config/batkave.toml &>/tmp/hivemind-gw.log &
 sleep 3
 
 # --- Verify ---

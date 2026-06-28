@@ -10,9 +10,10 @@ import (
 // AuthMiddleware enforces API key authentication when enabled.
 // Set HIVEMIND_REQUIRE_AUTH=true to require valid consumer credentials.
 //
-// When enabled, every request must carry either:
-//   - Authorization: Bearer <key>  (key must exist in the consumer api_keys map)
-//   - X-HiveMind-Consumer: <name>  (name must match a known consumer or rate-limit entry)
+// When enabled, every request must carry one of:
+//   - Authorization: Bearer <master-token>  (matches HIVEMIND_AUTH_TOKEN env var)
+//   - Authorization: Bearer <key>           (key exists in consumer api_keys map)
+//   - X-HiveMind-Consumer: <name>           (name matches a known consumer)
 //
 // When disabled (default), the gateway is permissive (backward compatible) but
 // logs a WARNING at startup and once per hour so the operator notices.
@@ -20,8 +21,15 @@ import (
 // ponytail: simple bearer/header check — upgrade: mTLS + rotating keys if exposed beyond LAN
 func AuthMiddleware(apiKeys map[string]string, knownConsumers map[string]struct{}, next http.Handler) http.Handler {
 	enforced := strings.EqualFold(os.Getenv("HIVEMIND_REQUIRE_AUTH"), "true")
+	masterToken := os.Getenv("HIVEMIND_AUTH_TOKEN")
+
 	if enforced {
 		log.Printf("[hivemind] auth: ENFORCED — requests require valid Bearer token or X-HiveMind-Consumer header")
+		if masterToken != "" {
+			log.Printf("[hivemind] auth: master token loaded from HIVEMIND_AUTH_TOKEN")
+		} else {
+			log.Printf("[hivemind] auth: WARNING — HIVEMIND_AUTH_TOKEN not set, only consumer synthetic tokens accepted")
+		}
 	} else {
 		log.Printf("[hivemind] auth: WARNING — permissive mode (HIVEMIND_REQUIRE_AUTH not set). " +
 			"Set HIVEMIND_REQUIRE_AUTH=true to enforce consumer credentials.")
@@ -37,6 +45,12 @@ func AuthMiddleware(apiKeys map[string]string, knownConsumers map[string]struct{
 		auth := r.Header.Get("Authorization")
 		if strings.HasPrefix(auth, "Bearer ") {
 			key := strings.TrimPrefix(auth, "Bearer ")
+			// Master token from HIVEMIND_AUTH_TOKEN env var
+			if masterToken != "" && key == masterToken {
+				next.ServeHTTP(w, r)
+				return
+			}
+			// Consumer synthetic token from config
 			if _, ok := apiKeys[key]; ok {
 				next.ServeHTTP(w, r)
 				return
