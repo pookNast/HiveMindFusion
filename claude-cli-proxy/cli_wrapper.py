@@ -1,12 +1,18 @@
 """Translate OpenAI chat completion requests to `claude -p` headless CLI invocations."""
 
 import json
+import os
 import subprocess
 import time
 import uuid
 from typing import Any
 
 CLAUDE_BIN = "/home/pook/.npm-global/bin/claude"
+
+# SECURITY: --dangerously-skip-permissions is opt-in only.
+# Set CLAUDE_PROXY_ALLOW_ALL=true to re-enable it (e.g. for trusted local sandbox use).
+# Default: flag is NOT included, so claude CLI enforces its normal permission prompts.
+_ALLOW_ALL = os.environ.get("CLAUDE_PROXY_ALLOW_ALL", "").lower() == "true"
 
 # Map OpenAI-style slugs → Claude CLI model identifiers.
 # Pass-through if not found — let the CLI validate.
@@ -58,8 +64,9 @@ def call_claude(
         "-p", prompt,
         "--model", cli_model,
         "--output-format", "json",
-        "--dangerously-skip-permissions",
     ]
+    if _ALLOW_ALL:
+        cmd.append("--dangerously-skip-permissions")
     # ponytail: --max-tokens not a claude CLI flag — skipped. upgrade: use system prompt to constrain length
     start = time.time()
     try:
@@ -137,9 +144,10 @@ async def call_claude_streaming(
         "-p", prompt,
         "--model", cli_model,
         "--output-format", "stream-json",
-        "--dangerously-skip-permissions",
         "--verbose",
     ]
+    if _ALLOW_ALL:
+        cmd.append("--dangerously-skip-permissions")
     # ponytail: --max-tokens not a claude CLI flag — skipped in streaming mode too
     env = {"HOME": "/home/pook", "PATH": "/home/pook/.npm-global/bin:/usr/local/bin:/usr/bin:/bin"}
     completion_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"

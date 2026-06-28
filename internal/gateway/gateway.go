@@ -63,11 +63,32 @@ func (g *Gateway) buildProxyHandler(cfg *config.Config) http.HandlerFunc {
 	g.setupRoutes(proxyMux, p)
 
 	var handler http.Handler = g.consumer.Middleware(proxyMux)
+
 	if cfg.PII.Enabled {
 		piiClient := pii.NewClient(cfg.PII.Endpoint, cfg.PII.TimeoutMs, cfg.PII.BypassOnFailure)
 		handler = pii.Middleware(piiClient, handler)
 	}
+
+	// Auth gate: outermost wrapper so unauthenticated requests are rejected
+	// BEFORE PII scanning or consumer tracking touch the request body.
+	apiKeys, knownConsumers := g.buildKnownConsumers(cfg)
+	handler = AuthMiddleware(apiKeys, knownConsumers, handler)
+
 	return handler.ServeHTTP
+}
+
+// buildKnownConsumers returns the set of valid consumer names for auth checks.
+// Includes consumers from api_keys values and rate_limit consumer entries.
+func (g *Gateway) buildKnownConsumers(cfg *config.Config) (map[string]string, map[string]struct{}) {
+	consumers := make(map[string]struct{})
+	for _, name := range cfg.Consumers.APIKeys {
+		consumers[name] = struct{}{}
+	}
+	for name := range cfg.RateLimit.Consumers {
+		consumers[name] = struct{}{}
+	}
+	consumers["__default__"] = struct{}{}
+	return cfg.Consumers.APIKeys, consumers
 }
 
 // Reload applies a new config to the live gateway without a restart: it rebuilds
@@ -119,7 +140,7 @@ func (g *Gateway) Run() error {
 	})
 
 	g.mu.Lock()
-	g.proxyServer = &http.Server{Addr: fmt.Sprintf(":%d", cfg.Gateway.Port), Handler: handler}
+	g.proxyServer = &http.Server{Addr: fmt.Sprintf("127.0.0.1:%d", cfg.Gateway.Port), Handler: handler}
 	g.adminServer = &http.Server{Addr: fmt.Sprintf("127.0.0.1:%d", cfg.Gateway.AdminPort), Handler: adminMux}
 	g.metricsServer = &http.Server{Addr: fmt.Sprintf("127.0.0.1:%d", cfg.Gateway.MetricsPort), Handler: metricsMux}
 	proxy, admin, metrics := g.proxyServer, g.adminServer, g.metricsServer
