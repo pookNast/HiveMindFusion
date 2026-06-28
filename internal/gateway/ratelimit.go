@@ -119,17 +119,21 @@ func (rl *RateLimiter) getBucket(consumer string) *bucket {
 	return b
 }
 
+// consumerFromContext resolves the authenticated consumer from the request
+// context (set by AuthMiddleware). Falls back to "__default__" when auth is
+// permissive or no identity is attached — all anonymous callers share that bucket.
+func consumerFromContext(r *http.Request) string {
+	if v, ok := r.Context().Value(ConsumerCtxKey).(string); ok && v != "" {
+		return v
+	}
+	return "__default__"
+}
+
 // Middleware wraps next and enforces rate limits, returning 429 + Retry-After
 // when a consumer exceeds their configured limit.
 func (rl *RateLimiter) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		consumer := r.Header.Get("X-HiveMind-Consumer")
-		if consumer == "" {
-			consumer = r.Header.Get("Authorization")
-		}
-		if consumer == "" {
-			consumer = "__default__"
-		}
+		consumer := consumerFromContext(r)
 
 		allowed, retryAfter := rl.getBucket(consumer).take()
 		if !allowed {

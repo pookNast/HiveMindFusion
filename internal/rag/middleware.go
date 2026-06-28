@@ -38,6 +38,9 @@ type ConsumerConfig struct {
 	EmbedModel string
 }
 
+// maxContextChars caps the injected context block size to bound prompt inflation.
+const maxContextChars = 8192
+
 // Middleware injects Qdrant-retrieved context into OpenAI-compatible chat requests.
 type Middleware struct {
 	qdrant     *QdrantClient
@@ -109,6 +112,10 @@ func (m *Middleware) InjectContext(body []byte) ([]byte, error) {
 	}
 
 	contextBlock := buildContextBlock(results)
+	// ponytail: hardcoded cap — upgrade: per-consumer config if limits ever diverge
+	if len(contextBlock) > maxContextChars {
+		contextBlock = contextBlock[:maxContextChars] + "\n</retrieved_context>\n[... context truncated ...]"
+	}
 	req.Messages = prependSystemContext(req.Messages, contextBlock)
 
 	out, err := json.Marshal(req)
@@ -176,18 +183,28 @@ func lastUserMessage(messages []chatMessage) string {
 	return ""
 }
 
-// buildContextBlock formats retrieved Qdrant results as a readable context string.
+// ponytail: only strips our own delimiters — upgrade: strip ChatML tokens (<|im_start|>) if a model-specific prompt-template injection is observed
+var contextSanitizer = strings.NewReplacer(
+	"<retrieved_context>", "[blocked]",
+	"</retrieved_context>", "[blocked]",
+)
+
+// buildContextBlock formats retrieved Qdrant results as a readable context string,
+// wrapped in explicit delimiters so a poisoned KB entry cannot close the block
+// early and inject arbitrary prompt content.
 func buildContextBlock(results []SearchResult) string {
 	var b strings.Builder
+	b.WriteString("<retrieved_context>\n")
 	b.WriteString("Relevant context retrieved from knowledge base:\n\n")
 	for i, r := range results {
-		text := extractText(r.Payload)
+		text := contextSanitizer.Replace(extractText(r.Payload))
 		if text == "" {
 			continue
 		}
 		fmt.Fprintf(&b, "[%d] (score %.3f)\n%s\n\n", i+1, r.Score, text)
 	}
-	return strings.TrimSpace(b.String())
+	b.WriteString("</retrieved_context>")
+	return b.String()
 }
 
 // extractText pulls a human-readable string from a Qdrant payload.

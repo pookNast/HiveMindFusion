@@ -22,11 +22,12 @@ func (e *ValidationError) Error() string {
 
 // Gateway configures the main proxy listener ports.
 type Gateway struct {
-	Port                   int `toml:"port"`
-	AdminPort              int `toml:"admin_port"`
-	MetricsPort            int `toml:"metrics_port"`
-	HealthIntervalSecs     int `toml:"health_interval_secs"`
-	HealthFailureThreshold int `toml:"health_failure_threshold"`
+	Port                   int  `toml:"port"`
+	AdminPort              int  `toml:"admin_port"`
+	MetricsPort            int  `toml:"metrics_port"`
+	HealthIntervalSecs     int  `toml:"health_interval_secs"`
+	HealthFailureThreshold int  `toml:"health_failure_threshold"`
+	ResponseValidation     bool `toml:"response_validation"`
 }
 
 // Backend defines a single upstream LLM backend.
@@ -101,10 +102,10 @@ type RAG struct {
 
 // Compression configures the headroom-srv compression sidecar.
 type Compression struct {
-	Enabled      bool   `toml:"enabled"`
-	Endpoint     string `toml:"endpoint"`
-	MinBodySize  int    `toml:"min_body_size"`
-	TimeoutMs    int    `toml:"timeout_ms"`
+	Enabled     bool   `toml:"enabled"`
+	Endpoint    string `toml:"endpoint"`
+	MinBodySize int    `toml:"min_body_size"`
+	TimeoutMs   int    `toml:"timeout_ms"`
 }
 
 // FusionPanel defines a single fusion tier's model roster.
@@ -119,23 +120,23 @@ type FusionPanel struct {
 
 // Fusion configures the in-process multi-model orchestrator.
 type Fusion struct {
-	Enabled bool                    `toml:"enabled"`
-	Panels  map[string]FusionPanel  `toml:"panels"`
+	Enabled bool                   `toml:"enabled"`
+	Panels  map[string]FusionPanel `toml:"panels"`
 }
 
 // Config is the top-level configuration structure.
 type Config struct {
-	Gateway   Gateway         `toml:"gateway"`
-	Backends  []Backend       `toml:"backends"`
-	PII       PII             `toml:"pii"`
-	Models    Models          `toml:"models"`
-	RateLimit RateLimitConfig `toml:"rate_limit"`
-	Consumers ConsumerConfig  `toml:"consumers"`
-	Qdrant      Qdrant       `toml:"qdrant"`
-	Embed       Embed        `toml:"embed"`
-	RAG         RAG          `toml:"rag"`
-	Compression Compression  `toml:"compression"`
-	Fusion      Fusion       `toml:"fusion"`
+	Gateway     Gateway         `toml:"gateway"`
+	Backends    []Backend       `toml:"backends"`
+	PII         PII             `toml:"pii"`
+	Models      Models          `toml:"models"`
+	RateLimit   RateLimitConfig `toml:"rate_limit"`
+	Consumers   ConsumerConfig  `toml:"consumers"`
+	Qdrant      Qdrant          `toml:"qdrant"`
+	Embed       Embed           `toml:"embed"`
+	RAG         RAG             `toml:"rag"`
+	Compression Compression     `toml:"compression"`
+	Fusion      Fusion          `toml:"fusion"`
 }
 
 // Load reads the config from HIVEMIND_CONFIG env var or the default path.

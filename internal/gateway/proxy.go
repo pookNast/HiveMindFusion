@@ -21,14 +21,15 @@ import (
 
 // Proxy routes OpenAI-compatible requests to configured backends with fallback support.
 type Proxy struct {
-	backends     map[string][]*config.Backend // model name → ordered fallback chain
-	health       *HealthChecker
-	metrics      *Metrics
-	transport    *http.Transport
-	ragHandlers  map[string]*rag.Middleware // consumer name → RAG middleware (nil if disabled)
-	consumerFunc func(*http.Request) string // injected: resolves consumer from request
-	compressor   *Compressor                // headroom-srv compression sidecar (nil if disabled)
-	fusionEngine *fusion.Engine             // in-process fusion orchestrator (nil if disabled)
+	backends           map[string][]*config.Backend // model name → ordered fallback chain
+	health             *HealthChecker
+	metrics            *Metrics
+	transport          *http.Transport
+	ragHandlers        map[string]*rag.Middleware // consumer name → RAG middleware (nil if disabled)
+	consumerFunc       func(*http.Request) string // injected: resolves consumer from request
+	compressor         *Compressor                // headroom-srv compression sidecar (nil if disabled)
+	fusionEngine       *fusion.Engine             // in-process fusion orchestrator (nil if disabled)
+	responseValidation bool                       // opt-in JSON response validation
 }
 
 func newProxy(cfg *config.Config, hc *HealthChecker, metrics *Metrics, consumerFunc func(*http.Request) string) *Proxy {
@@ -37,10 +38,10 @@ func newProxy(cfg *config.Config, hc *HealthChecker, metrics *Metrics, consumerF
 			Timeout:   10 * time.Second,
 			KeepAlive: 30 * time.Second,
 		}).DialContext,
-		MaxIdleConns:          100,
-		MaxIdleConnsPerHost:   10,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
+		MaxIdleConns:        100,
+		MaxIdleConnsPerHost: 10,
+		IdleConnTimeout:     90 * time.Second,
+		TLSHandshakeTimeout: 10 * time.Second,
 		// ponytail: 180s to absorb fusion pipeline (fan-out+judge+synth can exceed 120s) — upgrade: per-backend timeout config
 		ResponseHeaderTimeout: 180 * time.Second,
 	}
@@ -61,13 +62,14 @@ func newProxy(cfg *config.Config, hc *HealthChecker, metrics *Metrics, consumerF
 	}
 
 	p := &Proxy{
-		backends:     buildFallbackChain(cfg.Backends),
-		health:       hc,
-		metrics:      metrics,
-		transport:    transport,
-		ragHandlers:  ragHandlers,
-		consumerFunc: consumerFunc,
-		compressor:   NewCompressor(cfg.Compression),
+		backends:           buildFallbackChain(cfg.Backends),
+		health:             hc,
+		metrics:            metrics,
+		transport:          transport,
+		ragHandlers:        ragHandlers,
+		consumerFunc:       consumerFunc,
+		compressor:         NewCompressor(cfg.Compression),
+		responseValidation: cfg.Gateway.ResponseValidation,
 	}
 
 	// Wire fusion engine if enabled — uses backendCaller to dispatch directly
@@ -234,6 +236,30 @@ func (p *Proxy) forwardAttempt(w http.ResponseWriter, r *http.Request, backend *
 			if isFallback {
 				resp.Header.Set("X-HiveMind-Fallback", backend.Name)
 			}
+			// ponytail: non-streaming only — streaming validation needs SSE-line buffering, deferred
+			if p.responseValidation && strings.HasPrefix(resp.Header.Get("Content-Type"), "application/json") {
+				body, err := io.ReadAll(resp.Body)
+				if err != nil {
+					log.Printf("[hivemind] response validation: read error on backend %q: %v", backend.Name, err)
+					return fmt.Errorf("response validation: failed to read body: %w", err)
+				}
+				// ponytail: checks required OpenAI chat-completion keys only — upgrade: full schema if API surface grows
+				var check struct {
+					ID      string            `json:"id"`
+					Object  string            `json:"object"`
+					Choices []json.RawMessage `json:"choices"`
+				}
+				if err := json.Unmarshal(body, &check); err != nil {
+					log.Printf("[hivemind] response validation: malformed JSON from backend %q: %v", backend.Name, err)
+					return fmt.Errorf("response validation: malformed JSON: %w", err)
+				}
+				if check.ID == "" || check.Object == "" || len(check.Choices) == 0 {
+					log.Printf("[hivemind] response validation: missing required fields (id/object/choices) from backend %q", backend.Name)
+					return fmt.Errorf("response validation: missing required fields")
+				}
+				resp.Body = io.NopCloser(bytes.NewReader(body))
+				resp.ContentLength = int64(len(body))
+			}
 			return nil
 		},
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
@@ -285,7 +311,6 @@ func (p *Proxy) handleModels(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(modelsResp{Object: "list", Data: models})
 }
-
 
 // backendCaller implements fusion.BackendCaller — calls a specific backend model
 // directly through the proxy's HTTP transport (no gateway loopback).

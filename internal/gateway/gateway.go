@@ -9,11 +9,11 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/pooknast/HiveMindFusion/internal/config"
 	"github.com/pooknast/HiveMindFusion/internal/pii"
 	"github.com/pooknast/HiveMindFusion/internal/rag"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type Gateway struct {
@@ -63,6 +63,12 @@ func (g *Gateway) buildProxyHandler(cfg *config.Config) http.HandlerFunc {
 	g.setupRoutes(proxyMux, p)
 
 	var handler http.Handler = g.consumer.Middleware(proxyMux)
+
+	// Rate limiter: bind to authenticated identity (AuthMiddleware sets the
+	// context value the limiter reads). Sits inside auth so unauthenticated
+	// requests are rejected before bucket accounting touches them.
+	rl := NewRateLimiter(cfg.RateLimit)
+	handler = rl.Middleware(handler)
 
 	if cfg.PII.Enabled {
 		piiClient := pii.NewClient(cfg.PII.Endpoint, cfg.PII.TimeoutMs, cfg.PII.BypassOnFailure)

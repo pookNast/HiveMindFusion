@@ -1,11 +1,18 @@
 package gateway
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
 	"strings"
 )
+
+// ctxKey is the typed context key used to propagate authenticated consumer identity.
+type ctxKey string
+
+// ConsumerCtxKey stores the authenticated consumer name on the request context.
+const ConsumerCtxKey ctxKey = "authenticated_consumer"
 
 // AuthMiddleware enforces API key authentication when enabled.
 // Set HIVEMIND_REQUIRE_AUTH=true to require valid consumer credentials.
@@ -41,32 +48,41 @@ func AuthMiddleware(apiKeys map[string]string, knownConsumers map[string]struct{
 			return
 		}
 
+		consumer := ""
+
 		// Check Authorization: Bearer <key>
 		auth := r.Header.Get("Authorization")
 		if strings.HasPrefix(auth, "Bearer ") {
 			key := strings.TrimPrefix(auth, "Bearer ")
 			// Master token from HIVEMIND_AUTH_TOKEN env var
 			if masterToken != "" && key == masterToken {
-				next.ServeHTTP(w, r)
-				return
-			}
-			// Consumer synthetic token from config
-			if _, ok := apiKeys[key]; ok {
-				next.ServeHTTP(w, r)
-				return
+				consumer = "__master__"
+			} else if name, ok := apiKeys[key]; ok {
+				// Consumer synthetic token from config
+				consumer = name
 			}
 		}
 
 		// Check X-HiveMind-Consumer header
-		if consumer := r.Header.Get("X-HiveMind-Consumer"); consumer != "" {
-			if _, ok := knownConsumers[consumer]; ok {
-				next.ServeHTTP(w, r)
-				return
+		if consumer == "" {
+			if c := r.Header.Get("X-HiveMind-Consumer"); c != "" {
+				if _, ok := knownConsumers[c]; ok {
+					consumer = c
+				}
 			}
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(`{"error":{"message":"Unauthorized: valid consumer credentials required","type":"auth_error","code":"invalid_consumer_credentials"}}`)) //nolint:errcheck
+		if consumer == "" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte(`{"error":{"message":"Unauthorized: valid consumer credentials required","type":"auth_error","code":"invalid_consumer_credentials"}}`)) //nolint:errcheck
+			return
+		}
+
+		// Propagate authenticated identity to downstream middleware (rate limiter).
+		if consumer != "" {
+			r = r.WithContext(context.WithValue(r.Context(), ConsumerCtxKey, consumer))
+		}
+		next.ServeHTTP(w, r)
 	})
 }
