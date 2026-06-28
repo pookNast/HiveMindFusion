@@ -1,0 +1,9 @@
+# format: consumer_tag<TAB>dist_file
+# HiveMind overlay manifest — generated 2026-06-27T01:36:34Z
+ceo-agent	/home/pook/ralph/hivemind/overlays/dist/ceo-agent.txt
+cfo-agent	/home/pook/ralph/hivemind/overlays/dist/cfo-agent.txt
+cto-agent	/home/pook/ralph/hivemind/overlays/dist/cto-agent.txt
+loop-maxxer	/home/pook/ralph/hivemind/overlays/dist/loop-maxxer.txt
+rosie	/home/pook/ralph/hivemind/overlays/dist/rosie.txt
+siteops	/home/pook/ralph/hivemind/overlays/dist/siteops.txt
+super-worker	/home/pook/ralph/hivemind/overlays/dist/super-worker.txt
