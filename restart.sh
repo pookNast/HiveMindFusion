@@ -27,7 +27,8 @@ fi
 
 # --- Secrets from Vaultwarden (with fallback to static secrets file) ---
 export BW_SESSION=$(cat ~/.bw-session 2>/dev/null)
-# ponytail: bw CLI hangs on this host — fallback to /opt/claude-glm/secrets — upgrade: fix bw install
+# bw CLI fixed 2026-06-28: /etc/hosts override removed (was routing to unreachable Headscale IP).
+# Static cache remains as defense-in-depth if bw session expires between restarts.
 _zai_from_bw=$(timeout 8 bw get notes "ZAI API Key" </dev/null 2>/dev/null | grep "^ZAI_API_KEY=" | cut -d= -f2-)
 if [[ -n "$_zai_from_bw" ]]; then
   export ZAI_API_KEY="$_zai_from_bw"
