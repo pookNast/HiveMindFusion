@@ -59,7 +59,7 @@ sleep 3
 
 # --- Verify ---
 echo "=== Models ==="
-curl -sf http://127.0.0.1:8400/v1/models | python3 -c "import json,sys;[print(m['id']) for m in json.load(sys.stdin)['data']]" 2>/dev/null || echo "ERROR: Gateway not responding"
+curl -sf -H "Authorization: Bearer $HIVEMIND_AUTH_TOKEN" http://127.0.0.1:8400/v1/models | python3 -c "import json,sys;[print(m['id']) for m in json.load(sys.stdin)['data']]" 2>/dev/null || echo "ERROR: Gateway not responding (or auth token missing)"
 
 echo "=== Health ==="
 curl -sf http://127.0.0.1:8401/health | python3 -m json.tool 2>/dev/null || echo "WARN: Admin health not responding (may be localhost-only now)"
