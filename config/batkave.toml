@@ -288,6 +288,11 @@ requests_per_minute = 120
 burst               = 30
 # ponytail: 120/30 copied from siteops tier — upgrade: measure actual dispatch burst profile and tune
 
+[rate_limit.consumers.storm]
+requests_per_minute = 60
+burst               = 20
+# storm research CLI (~/bin/storm) — 5 parallel persona calls + synth per run
+
 # ── Qdrant ────────────────────────────────────────────────────────────────────
 
 [qdrant]
